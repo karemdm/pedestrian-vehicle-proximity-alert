@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pedestrian-vehicle-proximity-alert"
+version = "0.1.0"
+description = "Pedestrian-vehicle proximity alerts from monocular video using YOLO tracking and Depth Anything V2."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "AGPL-3.0-only" }
+authors = [{ name = "Karem Daiane Marcomini" }]
+keywords = ["computer-vision", "yolo", "depth-estimation", "pedestrian", "tracking"]
+dependencies = [
+    "ultralytics>=8.4.0",
+    "transformers>=4.45.0",
+    "torch>=2.0",
+    "opencv-python>=4.8",
+    "numpy>=1.24",
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+proximity-alert = "proximity_alert.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

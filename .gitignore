@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Outputs and media
+outputs/
+runs/
+*.mp4
+!results/*.mp4
+*.avi
+*.mov
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Note: weights/*.pt are intentionally NOT ignored.

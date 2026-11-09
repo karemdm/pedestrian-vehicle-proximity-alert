@@ -22,18 +22,25 @@ smooths the decision into an `OK` / `ALERT` state, and an annotated video is wri
 
 ## How it works
 
-```
-video frame
-   ├─► Depth Anything V2 Small ─► per-frame min-max normalize + invert ─► z(x, y)
-   └─► YOLO track (person, bicycle, motorcycle, car, bus, truck)
-            │
-            ├─ person ∩ bike/motorcycle ≥ 50 % of person area ─► rider (remembered 2 s, excluded)
-            ▼
-        pedestrian foot point f, height h
-            │  2D gate: ‖f − closest point of vehicle box‖ ≤ 1.0 · h
-            │  depth gate: |z(f) − z(contact)| ≤ 0.12   (7×7 median)
-            ▼
-        close? ─► 1 s sliding window ─► ALERT if ratio ≥ 50 % or close now
+```mermaid
+flowchart TD
+    A["Video frame"] --> B["Depth Anything V2 Small"]
+    B --> C["Per-frame min-max normalize + invert<br/>depth map z(x, y)"]
+    A --> D["YOLO tracking<br/>person, bicycle, motorcycle, car, bus, truck"]
+    D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
+    E -- yes --> F["Rider: remembered 2 s, excluded"]
+    E -- no --> G["Pedestrian: foot point f, height h"]
+    G --> H{"2D gate:<br/>distance to vehicle box ≤ 1.0 · h"}
+    H -- no --> L
+    H -- yes --> I{"Depth gate:<br/>Δz ≤ 0.12 (7×7 median)"}
+    C --> I
+    I -- yes --> K["Close in this frame"]
+    I -- no --> L["Not close"]
+    K --> M["1 s sliding window per track"]
+    L --> M
+    M --> N{"Close ratio ≥ 50 %<br/>or close now?"}
+    N -- yes --> O["ALERT"]
+    N -- no --> P["OK"]
 ```
 
 Details, formulas and tuning tips: [docs/how-it-works.md](docs/how-it-works.md).

@@ -35,7 +35,8 @@ class Config:
         conf: YOLO confidence threshold.
         time_window: Length in seconds of the per-person sliding window.
         min_ratio: Fraction (0-1) of close frames in the window that triggers an alert.
-        depth_threshold: Maximum |z_person - z_vehicle| on the normalized depth map.
+        depth_threshold: Maximum |z_person - z_vehicle| on the per-frame normalized
+            depth map z in [0, 1] (0 = nearest, 1 = farthest surface of the frame).
         height_factor: 2D gate radius as a multiple of the person bbox height.
         rider_overlap: Minimum fraction of the person area covered by a bicycle or
             motorcycle box for the person to be considered a rider.

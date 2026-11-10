@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import sys
 import time
 from typing import Hashable, List, Tuple
@@ -18,7 +19,7 @@ from proximity_alert.config import (
     TARGET_VEHICLE_CLASS_IDS,
     Config,
 )
-from proximity_alert.depth import DepthEstimator, colorize, robust_depth
+from proximity_alert.depth import DepthEstimator, robust_depth
 from proximity_alert.geometry import Box, clip_box
 from proximity_alert.proximity import ProximityEvaluator
 from proximity_alert.rendering import render
@@ -99,15 +100,27 @@ def run(config: Config) -> int:
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if not fps or math.isnan(fps):
+    if not fps or not math.isfinite(fps) or fps <= 0:
+        logger.warning("Invalid FPS reported by the input (%s); assuming 30.", fps)
         fps = 30.0
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     logger.info("Input: %dx%d @ %.2f FPS, %d frames", width, height, fps, total)
 
+    try:
+        depth_model = DepthEstimator(config.depth_model)
+        logger.info("Loading YOLO model %s", config.yolo_model)
+        yolo = YOLO(config.yolo_model)
+    except Exception:
+        cap.release()
+        raise
+
+    out_dir = os.path.dirname(os.path.abspath(config.output_path))
+    os.makedirs(out_dir, exist_ok=True)
     writer = cv2.VideoWriter(config.output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
-    depth_model = DepthEstimator(config.depth_model)
-    logger.info("Loading YOLO model %s", config.yolo_model)
-    yolo = YOLO(config.yolo_model)
+    if not writer.isOpened():
+        logger.error("Cannot open output video for writing: %s", config.output_path)
+        cap.release()
+        return 1
     evaluator = ProximityEvaluator(config)
     warn_state: dict = {}
 
@@ -121,6 +134,9 @@ def run(config: Config) -> int:
             ok, frame = cap.read()
             if not ok:
                 break
+            if frame.shape[0] != height or frame.shape[1] != width:
+                # The writer silently drops frames whose size differs from the one it was opened with.
+                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
             frame_idx += 1
             timestamp = frame_idx / fps
 
@@ -141,7 +157,7 @@ def run(config: Config) -> int:
             persons = evaluator.evaluate(
                 dets.persons, dets.rider_vehicles, dets.target_vehicles, depth_at, timestamp, (width, height)
             )
-            render(frame, persons, dets.rider_vehicles, dets.target_vehicles, colorize(depth), config.pip_scale)
+            render(frame, persons, dets.rider_vehicles, dets.target_vehicles, depth, config.pip_scale)
             writer.write(frame)
 
             elapsed = time.time() - start

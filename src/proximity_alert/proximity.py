@@ -27,7 +27,8 @@ class PersonResult:
         track_id: Tracker id.
         box: Clipped person box.
         foot: Bottom-center point of the box.
-        z: Median normalized (inverted) depth at the foot point.
+        z: Median normalized depth at the foot point, in [0, 1] (0 = nearest,
+            1 = farthest surface of the frame; see :mod:`proximity_alert.depth`).
         is_rider: Person is (or recently was) on a bicycle/motorcycle; skipped.
         currently_close: Passed both the 2D and the depth gate in this frame.
         min_dz: Smallest depth difference among vehicles passing the 2D gate.

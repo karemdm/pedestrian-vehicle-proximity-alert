@@ -41,3 +41,13 @@ def test_alert_rule():
     assert is_alert(0.5, False, 0.5)
     assert not is_alert(0.49, False, 0.5)
     assert is_alert(0.0, True, 0.5)
+
+
+def test_window_size_is_stable_with_float_timestamps():
+    hist = ProximityHistory(window_sec=1.0)
+    counts = set()
+    for frame_idx in range(1, 200):
+        hist.update(1, frame_idx / 30.0, True)
+        if frame_idx > 31:
+            counts.add(hist.count(1))
+    assert counts == {31}  # 1 s at 30 FPS, inclusive window

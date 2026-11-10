@@ -38,7 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--depth-threshold",
         type=float,
         default=d.depth_threshold,
-        help="Max |z_person - z_vehicle| on the normalized depth map (default: %(default)s).",
+        help="Max |z_person - z_vehicle| on the per-frame normalized depth map z in [0, 1] "
+        "(default: %(default)s).",
     )
     p.add_argument(
         "--height-factor",

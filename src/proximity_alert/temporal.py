@@ -10,8 +10,15 @@ from collections import deque
 from typing import Deque, Dict, Hashable, Iterable, Optional, Tuple
 
 
+_EPS = 1e-9
+"""Tolerance for float timestamps (``frame_idx / fps``) on window boundaries."""
+
+
 class ProximityHistory:
     """Sliding window of "close / not close" observations per track id.
+
+    The window is inclusive: a sample at ``t`` is kept while ``now - t <= window_sec``,
+    so at a constant frame rate it holds ``round(window_sec * fps) + 1`` samples.
 
     Args:
         window_sec: Window length; samples older than ``now - window_sec`` are dropped.
@@ -31,7 +38,7 @@ class ProximityHistory:
         """
         samples = self._samples.setdefault(track_id, deque())
         samples.append((timestamp, is_close))
-        while samples and timestamp - samples[0][0] > self.window_sec:
+        while samples and timestamp - samples[0][0] > self.window_sec + _EPS:
             samples.popleft()
 
     def ratio(self, track_id: Hashable) -> float:
@@ -85,7 +92,7 @@ class RiderMemory:
     def is_rider(self, track_id: Hashable, timestamp: float) -> bool:
         """Whether ``track_id`` was a rider within the last ``memory_sec`` seconds."""
         last = self._last_seen.get(track_id)
-        return last is not None and timestamp - last <= self.memory_sec
+        return last is not None and timestamp - last <= self.memory_sec + _EPS
 
     def cleanup(self, timestamp: float) -> None:
         """Drops entries older than twice the memory duration."""

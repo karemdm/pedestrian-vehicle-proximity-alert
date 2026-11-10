@@ -8,7 +8,6 @@ distance gate scaled by the person's height and a depth-difference gate. A short
 smooths the decision into an `OK` / `ALERT` state, and an annotated video is written.
 
 ![demo](docs/assets/demo.gif)
-<!-- add a short demo GIF here -->
 
 ## Features
 
@@ -25,7 +24,7 @@ smooths the decision into an `OK` / `ALERT` state, and an annotated video is wri
 ```mermaid
 flowchart TD
     A["Video frame"] --> B["Depth Anything V2 Small"]
-    B --> C["Per-frame min-max normalize + invert<br/>depth map z(x, y)"]
+    B --> C["Per-frame min-max normalize + invert<br/>z(x, y): 0 = nearest, 1 = farthest"]
     A --> D["YOLO tracking<br/>person, bicycle, motorcycle, car, bus, truck"]
     D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
     E -- yes --> F["Rider: remembered 2 s, excluded"]
@@ -63,7 +62,7 @@ On first run, Ultralytics downloads `yolo26x.pt` and `transformers` downloads th
 
 ## Results
 
-Example outputs produced by this project (re-encoded to H.264, max 1920 px wide, no audio):
+Example output produced by this project (re-encoded to H.264, 1280×720, 30 FPS, 60 s, no audio):
 
 | File | Content |
 |---|---|
@@ -124,7 +123,7 @@ The setup window exposes input/output, `imgsz`, `conf`, time window, min ratio, 
   - riders in orange (`Rider #id`);
   - pedestrians in green (`OK`) or red (`ALERT`), labeled `Person #id [STATUS (ratio%)]` and
     `Delta Z: <min Δz> (Z: <person z>)`, with lines from the foot point to each vehicle contact point;
-  - the colorized depth map (INFERNO) at 25 % size in the top-right corner.
+  - the colorized depth map `z` (INFERNO: near = dark, far = bright) at 25 % size in the top-right corner.
 - A progress line in the terminal with the frame count and processing FPS.
 
 No alert log or event file is written; alerts exist only as video annotations.
@@ -134,12 +133,18 @@ No alert log or event file is written; alerts exist only as video annotations.
 ```
 pedestrian-vehicle-proximity-alert/
 ├── README.md
+├── LICENSE
 ├── pyproject.toml
 ├── requirements.txt
 ├── docs/
-│   └── how-it-works.md
+│   ├── how-it-works.md
+│   └── assets/demo.gif
+├── results/
+│   ├── README.md
+│   └── shinjuku_proximity.mp4
 ├── weights/
-│   └── README.md
+│   ├── README.md
+│   └── yolo26m.pt
 ├── src/proximity_alert/
 │   ├── __init__.py
 │   ├── __main__.py
@@ -159,7 +164,8 @@ pedestrian-vehicle-proximity-alert/
     └── test_temporal.py
 ```
 
-Run the tests with `pytest` (they only need the standard library and `src` on the path, e.g. `pip install -e .`).
+Run the tests with `pytest` (they only need the standard library and `src` on the path, e.g. after `pip install -e .`
+or with `PYTHONPATH=src`).
 
 ## Limitations
 
@@ -168,8 +174,10 @@ Run the tests with `pytest` (they only need the standard library and `src` on th
 - **Per-frame min-max normalization.** The depth range changes with scene content (sky, far background, a large
   vehicle close to the camera), so `--depth-threshold` is scene-dependent and the same physical gap can give
   different `Δz` in different frames.
-- **Depth sign convention.** The map is inverted as in the original prototype (intended: higher = closer), but Depth
-  Anything already outputs inverse depth; the gates use `|Δz|` and are unaffected, but the `Z` label may be reversed.
+- **Depth convention.** Depth Anything V2 outputs relative *inverse* depth (higher = nearer); the map is inverted as in
+  the original prototype, so `z = 0` is the nearest and `z = 1` the farthest surface of the frame. `z` is 8-bit
+  quantized and not linear in distance (a given `Δz` is a smaller metric gap near the camera than far away). The gates
+  use `|Δz|`, which the inversion does not change.
 - **2D gate in image space.** The radius scales with the person's box height, which is only a rough perspective proxy;
   partially visible or occluded people get a smaller radius.
 - **Tracking quality drives the result.** ID switches reset the time window and the rider memory. If the tracker

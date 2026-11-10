@@ -7,6 +7,7 @@ from typing import Sequence
 import cv2
 import numpy as np
 
+from proximity_alert.depth import colorize
 from proximity_alert.geometry import Box
 from proximity_alert.proximity import PersonResult
 
@@ -59,12 +60,15 @@ def draw_person(frame: np.ndarray, person: PersonResult) -> None:
     cv2.putText(frame, f"Delta Z: {dz_str} (Z: {person.z:.3f})", (x1, max(10, y1 - 8)), FONT, 0.4, color, 1)
 
 
-def overlay_depth_pip(frame: np.ndarray, depth_bgr: np.ndarray, scale: float = 0.25, margin: int = 10) -> None:
-    """Pastes a scaled depth visualization in the top-right corner, in place.
+def overlay_depth_pip(frame: np.ndarray, depth_map: np.ndarray, scale: float = 0.25, margin: int = 10) -> None:
+    """Pastes a colorized, scaled depth map in the top-right corner, in place.
+
+    The float map is downscaled first and colorized at PiP size, so the colormap
+    runs on ``scale**2`` of the pixels instead of the full frame.
 
     Args:
         frame: Annotated BGR frame.
-        depth_bgr: Colorized depth map with the same size as ``frame``.
+        depth_map: Normalized depth map ``z`` in ``[0, 1]`` (see :mod:`proximity_alert.depth`).
         scale: PiP size relative to the frame.
         margin: Distance in pixels from the top and right borders.
     """
@@ -72,7 +76,7 @@ def overlay_depth_pip(frame: np.ndarray, depth_bgr: np.ndarray, scale: float = 0
     pip_w, pip_h = int(width * scale), int(height * scale)
     if pip_w < 2 or pip_h < 2 or pip_w + margin > width or pip_h + margin > height:
         return
-    pip = cv2.resize(depth_bgr, (pip_w, pip_h), interpolation=cv2.INTER_AREA)
+    pip = colorize(cv2.resize(depth_map, (pip_w, pip_h), interpolation=cv2.INTER_AREA))
     cv2.rectangle(pip, (0, 0), (pip_w - 1, pip_h - 1), (255, 255, 255), 2)
     frame[margin : margin + pip_h, width - pip_w - margin : width - margin] = pip
 
@@ -82,7 +86,7 @@ def render(
     persons: Sequence[PersonResult],
     rider_vehicle_boxes: Sequence[Box],
     target_vehicle_boxes: Sequence[Box],
-    depth_bgr: np.ndarray,
+    depth_map: np.ndarray,
     pip_scale: float,
 ) -> np.ndarray:
     """Draws all annotations on ``frame`` (in place) and returns it."""
@@ -90,5 +94,5 @@ def render(
     draw_boxes(frame, rider_vehicle_boxes, RIDER_VEHICLE_COLOR)
     for person in persons:
         draw_person(frame, person)
-    overlay_depth_pip(frame, depth_bgr, pip_scale)
+    overlay_depth_pip(frame, depth_map, pip_scale)
     return frame

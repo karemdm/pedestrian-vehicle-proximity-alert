@@ -7,7 +7,7 @@ and a temporal smoothing step.
 ```mermaid
 flowchart TD
     A["Video frame"] --> B["Depth Anything V2 Small"]
-    B --> C["Per-frame min-max normalize + invert<br/>depth map z(x, y)"]
+    B --> C["Per-frame min-max normalize + invert<br/>z(x, y): 0 = nearest, 1 = farthest"]
     A --> D["YOLO tracking<br/>person, bicycle, motorcycle, car, bus, truck"]
     D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
     E -- yes --> F["Rider: remembered 2 s, excluded"]
@@ -28,22 +28,31 @@ flowchart TD
 ## 1. Relative depth
 
 Depth Anything V2 Small (`depth-anything/Depth-Anything-V2-Small-hf`) is run via the
-`transformers` `depth-estimation` pipeline. The output `d` is resized to the frame
-size and normalized **per frame**:
+`transformers` `depth-estimation` pipeline. The model predicts *relative inverse
+depth* (disparity-like: larger = nearer). The pipeline's `depth` output `d` is that
+prediction resized to the frame size and min-max scaled to an 8-bit image
+(0 = farthest, 255 = nearest surface of the frame). It is then normalized again and
+**inverted**, as in the original prototype:
 
 ```
 z = 1 - (d - min(d)) / (max(d) - min(d))      (z = 1 everywhere if max - min <= 1e-5)
 ```
 
-The inversion is kept from the prototype, whose intent is "higher = closer".
-Note that Depth Anything V2 already outputs *relative inverse depth* (larger values
-for nearer surfaces), so after the inversion larger `z` may in fact correspond to
-farther surfaces. The gates only use `|Δz|`, so alerts are unaffected; only the
-`Z` value in the labels and the colors of the depth PiP depend on this convention.
-Verify on your footage before relying on the sign of `z`.
+So **`z = 0` is the nearest and `z = 1` the farthest surface of the current frame**
+(higher `z` = farther). This is what the `Z:` label shows; in the INFERNO depth PiP,
+near surfaces are dark and far surfaces bright.
 
-Because the map is min-max normalized per frame, `z` is a relative value in
-`[0, 1]`, not a distance in meters.
+Properties of `z` to keep in mind:
+
+- It is relative and per frame (re-scaled on every frame), not a distance in meters.
+- It is an inverted *inverse* depth, so equal steps in `z` are not equal steps in
+  distance: a given `Δz` corresponds to a much smaller metric gap near the camera
+  than far away.
+- It is quantized to 256 levels (the pipeline's 8-bit output), so the default
+  `depth_threshold = 0.12` is about 31 levels.
+
+The gates only use `|Δz|`, which is identical with or without the inversion, so the
+inversion affects only the `Z` label and the PiP colors, not the alerts.
 
 Depth at a point is the median of a 7×7 patch (`--depth-patch`) around it, which
 suppresses single-pixel noise and edge artifacts.
@@ -94,7 +103,8 @@ A pedestrian is *currently close* if any vehicle passes both gates. The smallest
 ## 5. Temporal window and alert
 
 Each pedestrian track keeps `(t, close)` samples from the last `time_window`
-seconds (1.0 s, video time `t = frame_index / fps`). Then:
+seconds (1.0 s, video time `t = frame_index / fps`; the window is inclusive, so it
+holds 31 samples at 30 FPS). Then:
 
 ```
 ratio = (# close samples) / (# samples in window)
@@ -111,7 +121,8 @@ ends (hysteresis); an alert is always raised while the person is currently close
 - Riders: orange box, `Rider #id`.
 - Pedestrians: green (OK) or red (ALERT) box, label `Person #id [STATUS (ratio%)]`
   and `Delta Z: … (Z: …)`; red lines from the foot point to each vehicle contact point.
-- Colorized depth map (INFERNO) as picture-in-picture, 25 % of the frame, top-right.
+- Colorized depth map `z` (INFERNO: near = dark, far = bright) as picture-in-picture,
+  25 % of the frame (`--pip-scale`), top-right.
 
 ## Parameter guide
 

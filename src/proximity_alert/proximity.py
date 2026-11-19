@@ -15,6 +15,9 @@ from proximity_alert.temporal import ProximityHistory, RiderMemory, is_alert
 
 DepthFn = Callable[[int, int], float]
 
+MIN_TRACK_GRACE_SEC = 1.0
+"""Minimum time a missing track keeps its sliding window (video seconds)."""
+
 MIN_PERSON_HEIGHT_PX = 10
 """Lower bound of the person height used for the 2D gate."""
 
@@ -86,7 +89,6 @@ class ProximityEvaluator:
         cfg = self.config
         width, height = frame_size
         results: List[PersonResult] = []
-        active_ids = set()
 
         for track_id, box in persons:
             fx, fy = foot_point(box)
@@ -100,11 +102,11 @@ class ProximityEvaluator:
                 person.is_rider = True
                 continue
 
-            active_ids.add(track_id)
             self._check_vehicles(person, target_vehicle_boxes, depth_at)
             self.history.update(track_id, timestamp, person.currently_close)
 
-        self.history.prune(active_ids)
+        # Keep tracks that vanished briefly (missed detections); drop them after the grace period.
+        self.history.prune_stale(timestamp, max(MIN_TRACK_GRACE_SEC, cfg.time_window))
         self.riders.cleanup(timestamp)
 
         for person in results:

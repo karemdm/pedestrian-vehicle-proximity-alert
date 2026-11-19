@@ -46,19 +46,48 @@ Details, formulas and tuning tips: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Installation
 
+Requires Python 3.9 or newer.
+
+### Linux / macOS (bash)
+
 ```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
+git clone https://github.com/karemdm/pedestrian-vehicle-proximity-alert.git
+cd pedestrian-vehicle-proximity-alert
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .          # installs the `proximity-alert` command
 ```
+
+On Debian/Ubuntu, the setup window (Tkinter) and the OpenCV preview window need a few system packages:
+
+```bash
+sudo apt install python3-tk libgl1 libglib2.0-0
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/karemdm/pedestrian-vehicle-proximity-alert.git
+cd pedestrian-vehicle-proximity-alert
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .          # installs the `proximity-alert` command
+```
+
+If PowerShell blocks the activation script, allow local scripts for the current session with
+`Set-ExecutionPolicy -Scope Process RemoteSigned` and activate again.
+
+### GPU and first run
 
 A CUDA-capable GPU is strongly recommended: two networks run on every frame. Install the PyTorch build that matches
 your CUDA version from [pytorch.org](https://pytorch.org) before the other requirements. The depth model runs on GPU
 automatically when CUDA is available.
 
-On first run, Ultralytics downloads `yolo26x.pt` and `transformers` downloads the depth model (see
-[weights/README.md](weights/README.md)).
+The default detector is `yolo26x.pt`, which is not stored in this repository. On first run Ultralytics downloads it
+and `transformers` downloads the depth model (internet access required). The lighter `weights/yolo26m.pt` ships with
+the repository and needs no YOLO download: pass `--model weights/yolo26m.pt`. See [weights/README.md](weights/README.md).
 
 ## Results
 
@@ -99,7 +128,7 @@ python -m proximity_alert --help
 | `-i, --input` | — | Input video. If omitted, the setup window opens. |
 | `-o, --output` | — | Output MP4 (required with `--input`). |
 | `--gui` | off | Open the setup window prefilled with the CLI values. |
-| `--model` | `yolo26x.pt` | YOLO weights path or official name (auto-downloaded). |
+| `--model` | `yolo26x.pt` | YOLO weights path or official name (auto-downloaded). The shipped lighter model is `weights/yolo26m.pt`. |
 | `--depth-model` | `depth-anything/Depth-Anything-V2-Small-hf` | Hugging Face depth model id. |
 | `--imgsz` | `1280` | YOLO inference size. |
 | `--conf` | `0.10` | YOLO confidence threshold. |

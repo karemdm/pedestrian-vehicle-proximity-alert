@@ -109,8 +109,10 @@ def run(config: Config) -> int:
     step = max(1, int(config.frame_step))
     out_fps = effective_fps(fps, step)
     total_processed = processed_frame_count(total, step) if total > 0 else 0
-    logger.info("Input: %dx%d @ %.2f FPS, %d frames; processing every %d frame(s) -> %.2f FPS output",
-                width, height, fps, total, step, out_fps)
+    logger.info(
+        "Input: %dx%d @ %.2f FPS, %d frames; processing every %d frame(s), output at %.2f FPS",
+        width, height, fps, total, step, out_fps,
+    )
 
     try:
         depth_model = DepthEstimator(config.depth_model)

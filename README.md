@@ -140,14 +140,26 @@ python -m proximity_alert --help
 | `--rider-memory` | `2.0` | Seconds the rider status persists after the last overlap. |
 | `--depth-patch` | `7` | Side in pixels of the median depth patch. |
 | `--pip-scale` | `0.25` | Size of the depth picture-in-picture relative to the frame. |
+| `--frame-step` | `1` | Process every Nth frame. The output is written at `fps / N`, so it keeps the original speed. |
 | `--no-display` | off | Do not open the live preview window. |
 | `--log-level` | `INFO` | Logging verbosity. |
 
-The setup window exposes input/output, `imgsz`, `conf`, time window, min ratio, depth threshold and height factor.
+The setup window exposes input/output, `imgsz`, `conf`, time window, min ratio, depth threshold, height factor and frame step.
+
+## Faster processing
+
+`--frame-step N` runs depth and tracking on every Nth frame only and writes the output at `fps / N`, so the video plays
+at the original speed (with fewer frames). The sliding time window and the rider memory use that effective frame rate,
+so `--time-window 1.0` is still one second of video; a window holds fewer samples at higher steps. Skipped frames are
+not drawn. Large steps make tracking harder (objects move farther between processed frames), so keep `N` small.
+
+```bash
+proximity-alert -i input.mp4 -o outputs/result.mp4 --frame-step 3 --no-display
+```
 
 ## Output
 
-- An MP4 video (`mp4v`, same resolution and FPS as the input) with:
+- An MP4 video (`mp4v`, same resolution as the input, same FPS divided by `--frame-step`) with:
   - target vehicles in blue, bicycles/motorcycles in cyan;
   - riders in orange (`Rider #id`);
   - pedestrians in green (`OK`) or red (`ALERT`), labeled `Person #id [STATUS (ratio%)]` and

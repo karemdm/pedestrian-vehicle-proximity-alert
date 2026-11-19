@@ -23,7 +23,7 @@ class SetupWindow:
         self._result: Optional[Config] = None
         self.root = tk.Tk()
         self.root.title("Proximity Alert Setup")
-        self.root.geometry("600x480")
+        self.root.geometry("600x520")
         self.input_path = defaults.input_path
         self.output_path = defaults.output_path
         self.vars = {
@@ -33,6 +33,7 @@ class SetupWindow:
             "min_ratio": tk.StringVar(value=f"{defaults.min_ratio * 100:g}"),
             "depth_threshold": tk.StringVar(value=str(defaults.depth_threshold)),
             "height_factor": tk.StringVar(value=str(defaults.height_factor)),
+            "frame_step": tk.StringVar(value=str(defaults.frame_step)),
         }
         self._build()
 
@@ -62,6 +63,7 @@ class SetupWindow:
             ("Min Alert Ratio (%):", "min_ratio"),
             ("Delta Z Threshold (Depth):", "depth_threshold"),
             ("2D Radius Factor (x BBox Height):", "height_factor"),
+            ("Process Every Nth Frame:", "frame_step"),
         ]
         for row, (text, key) in enumerate(fields):
             tk.Label(params, text=text).grid(row=row, column=0, sticky="w", padx=5, pady=2)
@@ -108,8 +110,12 @@ class SetupWindow:
                 min_ratio=float(self.vars["min_ratio"].get()) / 100.0,
                 depth_threshold=float(self.vars["depth_threshold"].get()),
                 height_factor=float(self.vars["height_factor"].get()),
+                frame_step=int(self.vars["frame_step"].get()),
             )
+            if self._result.frame_step < 1:
+                raise ValueError("frame_step must be >= 1")
         except ValueError:
+            self._result = None
             messagebox.showerror("Error", "Please verify that numerical parameters are valid!")
             return
         self.root.quit()

@@ -62,6 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--pip-scale", type=float, default=d.pip_scale, help="Depth picture-in-picture scale (default: %(default)s)."
     )
+    p.add_argument(
+        "--frame-step",
+        type=int,
+        default=d.frame_step,
+        help="Process every Nth frame; the output is written at fps/N so it keeps the original speed "
+        "(default: %(default)s).",
+    )
     p.add_argument("--no-display", action="store_true", help="Do not open the live preview window.")
     p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Logging level.")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -86,6 +93,7 @@ def config_from_args(args: argparse.Namespace) -> Config:
         depth_patch=args.depth_patch,
         pip_scale=args.pip_scale,
         display=not args.no_display,
+        frame_step=args.frame_step,
     )
 
 
@@ -101,6 +109,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    if args.frame_step < 1:
+        parser.error("--frame-step must be >= 1")
     config = config_from_args(args)
 
     if args.gui or not args.input:

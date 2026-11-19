@@ -58,6 +58,18 @@ class ProximityHistory:
         for track_id in [t for t in self._samples if t not in keep]:
             del self._samples[track_id]
 
+    def prune_stale(self, timestamp: float, grace_sec: float) -> None:
+        """Forgets tracks whose last observation is older than ``grace_sec``.
+
+        Unlike :meth:`prune`, a track missing for a few frames keeps its window.
+
+        Args:
+            timestamp: Current video time in seconds.
+            grace_sec: How long a track may stay unseen before its state is dropped.
+        """
+        for track_id in [t for t, s in self._samples.items() if not s or timestamp - s[-1][0] > grace_sec + _EPS]:
+            del self._samples[track_id]
+
     def __contains__(self, track_id: object) -> bool:
         return track_id in self._samples
 

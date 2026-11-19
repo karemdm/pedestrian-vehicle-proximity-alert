@@ -111,8 +111,9 @@ ratio = (# close samples) / (# samples in window)
 ALERT  if  ratio ≥ min_ratio (50 %)  or  currently close
 ```
 
-Histories of tracks not seen as pedestrians in the current frame (lost or riders)
-are dropped. The ratio mainly keeps the alert on for a short time after the contact
+Histories of tracks that have not been seen for longer than a grace period (the
+time window, at least 1 s, in video time) are dropped; a track missing for a few
+frames keeps its window. The ratio mainly keeps the alert on for a short time after the contact
 ends (hysteresis); an alert is always raised while the person is currently close.
 
 ## 6. Rendering

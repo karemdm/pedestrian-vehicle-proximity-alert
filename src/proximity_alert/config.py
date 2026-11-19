@@ -44,6 +44,8 @@ class Config:
         depth_patch: Side (pixels) of the square patch used for the median depth.
         pip_scale: Size of the depth picture-in-picture relative to the frame.
         display: Show a live preview window (press Q to stop).
+        frame_step: Process every Nth frame (1 = every frame). The output is written at
+            ``fps / frame_step`` so it plays at the original speed.
     """
 
     input_path: str = ""
@@ -61,3 +63,32 @@ class Config:
     depth_patch: int = 7
     pip_scale: float = 0.25
     display: bool = True
+    frame_step: int = 1
+
+
+def effective_fps(fps: float, frame_step: int) -> float:
+    """Frame rate of the processed frames when only every ``frame_step``-th one is used.
+
+    Time windows, rider memory and the output video must use this rate so that
+    seconds stay seconds.
+
+    Args:
+        fps: Frame rate of the input video.
+        frame_step: Process every Nth frame (>= 1).
+
+    Returns:
+        ``fps / frame_step``.
+
+    Raises:
+        ValueError: If ``frame_step`` is smaller than 1.
+    """
+    if frame_step < 1:
+        raise ValueError(f"frame_step must be >= 1, got {frame_step}")
+    return fps / frame_step
+
+
+def processed_frame_count(total_frames: int, frame_step: int) -> int:
+    """Number of frames processed out of ``total_frames`` (frames 0, N, 2N, ...)."""
+    if frame_step < 1:
+        raise ValueError(f"frame_step must be >= 1, got {frame_step}")
+    return max(0, (total_frames + frame_step - 1) // frame_step)

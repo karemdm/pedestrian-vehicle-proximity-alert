@@ -18,6 +18,8 @@ from proximity_alert.config import (
     RIDER_VEHICLE_CLASS_IDS,
     TARGET_VEHICLE_CLASS_IDS,
     Config,
+    effective_fps,
+    processed_frame_count,
 )
 from proximity_alert.depth import DepthEstimator, robust_depth
 from proximity_alert.geometry import Box, clip_box
@@ -104,7 +106,13 @@ def run(config: Config) -> int:
         logger.warning("Invalid FPS reported by the input (%s); assuming 30.", fps)
         fps = 30.0
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    logger.info("Input: %dx%d @ %.2f FPS, %d frames", width, height, fps, total)
+    step = max(1, int(config.frame_step))
+    out_fps = effective_fps(fps, step)
+    total_processed = processed_frame_count(total, step) if total > 0 else 0
+    logger.info(
+        "Input: %dx%d @ %.2f FPS, %d frames; processing every %d frame(s), output at %.2f FPS",
+        width, height, fps, total, step, out_fps,
+    )
 
     try:
         depth_model = DepthEstimator(config.depth_model)
@@ -116,7 +124,7 @@ def run(config: Config) -> int:
 
     out_dir = os.path.dirname(os.path.abspath(config.output_path))
     os.makedirs(out_dir, exist_ok=True)
-    writer = cv2.VideoWriter(config.output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    writer = cv2.VideoWriter(config.output_path, cv2.VideoWriter_fourcc(*"mp4v"), out_fps, (width, height))
     if not writer.isOpened():
         logger.error("Cannot open output video for writing: %s", config.output_path)
         cap.release()
@@ -128,17 +136,25 @@ def run(config: Config) -> int:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(WINDOW_NAME, 1280, 720)
 
-    frame_idx, start = 0, time.time()
+    frame_idx, raw_idx, start = 0, 0, time.time()
     try:
         while True:
+            if step > 1:
+                # Skipped frames are only grabbed (no decode to an array, no inference).
+                if raw_idx % step != 0:
+                    if not cap.grab():
+                        break
+                    raw_idx += 1
+                    continue
             ok, frame = cap.read()
             if not ok:
                 break
+            raw_idx += 1
             if frame.shape[0] != height or frame.shape[1] != width:
                 # The writer silently drops frames whose size differs from the one it was opened with.
                 frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
             frame_idx += 1
-            timestamp = frame_idx / fps
+            timestamp = frame_idx / out_fps  # effective fps: seconds stay seconds
 
             depth = depth_model(frame)
             result = yolo.track(
@@ -161,9 +177,9 @@ def run(config: Config) -> int:
             writer.write(frame)
 
             elapsed = time.time() - start
-            percent = frame_idx / total * 100 if total > 0 else 0.0
+            percent = frame_idx / total_processed * 100 if total_processed > 0 else 0.0
             sys.stdout.write(
-                f"\rProcessing frame: {frame_idx}/{total} ({percent:.1f}%) | "
+                f"\rProcessing frame: {frame_idx}/{total_processed} ({percent:.1f}%) | "
                 f"Speed: {frame_idx / elapsed if elapsed > 0 else 0.0:.1f} FPS"
             )
             sys.stdout.flush()

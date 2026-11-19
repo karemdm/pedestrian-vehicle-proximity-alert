@@ -2,11 +2,11 @@
 
 | File / model | Size | In this repo | Role |
 |---|---|---|---|
-| `yolo26x.pt` | ~114 MB | No (see below) | **Default** detector/tracker (`--model yolo26x.pt`). Official Ultralytics YOLO26 (COCO). |
+| `yolo26x.pt` | ~114 MB | No, downloaded on first run (see below) | **Default** detector/tracker (`--model yolo26x.pt`). Official Ultralytics YOLO26 (COCO). |
 | `weights/yolo26m.pt` | ~44 MB | Yes | Lighter option (`--model weights/yolo26m.pt`). Official Ultralytics YOLO26 (COCO). |
 | `depth-anything/Depth-Anything-V2-Small-hf` | — | No | Monocular relative depth. Downloaded from Hugging Face by `transformers` on first run and kept in the Hugging Face cache. |
 
-## Getting `yolo26x.pt`
+## Getting `yolo26x.pt` (default model)
 
 `yolo26x.pt` exceeds GitHub's 100 MB per-file limit, so it is not committed. Two options:
 

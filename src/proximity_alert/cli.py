@@ -109,8 +109,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    if args.frame_step < 1:
-        parser.error("--frame-step must be >= 1")
     config = config_from_args(args)
     from proximity_alert.validation import config_errors
 

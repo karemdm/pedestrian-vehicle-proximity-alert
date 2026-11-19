@@ -21,8 +21,9 @@ def test_invalid_values_are_reported():
         rider_memory=-1.0,
         depth_patch=0,
         pip_scale=1.5,
+        frame_step=0,
     )
-    assert len(config_errors(bad)) == 10
+    assert len(config_errors(bad)) == 11
 
 
 def test_nan_is_rejected():

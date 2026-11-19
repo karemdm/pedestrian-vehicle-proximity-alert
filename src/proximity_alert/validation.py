@@ -36,4 +36,5 @@ def config_errors(config: Config) -> List[str]:
     check(finite(config.rider_memory) and config.rider_memory >= 0, "rider memory must be >= 0")
     check(config.depth_patch >= 1, "depth patch must be at least 1 pixel")
     check(finite(config.pip_scale) and 0.0 < config.pip_scale < 1.0, "pip scale must be between 0 and 1 (exclusive)")
+    check(config.frame_step >= 1, "frame step must be at least 1")
     return errors

@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from proximity_alert.config import Config
+from proximity_alert.validation import config_errors
 
 
 class SetupWindow:
@@ -99,6 +100,9 @@ class SetupWindow:
         if not self.input_path or not self.output_path:
             messagebox.showerror("Error", "Please select both Input and Output file paths!")
             return
+        if not os.path.isfile(self.input_path):
+            messagebox.showerror("Error", "The selected input video does not exist!")
+            return
         try:
             self._result = replace(
                 self._defaults,
@@ -117,6 +121,11 @@ class SetupWindow:
         except ValueError:
             self._result = None
             messagebox.showerror("Error", "Please verify that numerical parameters are valid!")
+            return
+        problems = config_errors(self._result)
+        if problems:
+            self._result = None
+            messagebox.showerror("Error", "Invalid parameters:\n- " + "\n- ".join(problems))
             return
         self.root.quit()
         self.root.destroy()

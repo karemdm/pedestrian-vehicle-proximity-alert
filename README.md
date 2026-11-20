@@ -91,11 +91,18 @@ the repository and needs no YOLO download: pass `--model weights/yolo26m.pt`. Se
 
 ## Results
 
-Example output produced by this project (re-encoded to H.264, 1280×720, 30 FPS, 60 s, no audio):
+Example outputs produced by this project (re-encoded to H.264, 1280×720, no audio):
 
 | File | Content |
 |---|---|
-| [`results/shinjuku_proximity.mp4`](results/shinjuku_proximity.mp4) | Night-time intersection: pedestrians crossing near cars, buses and trucks, with alert states and the depth picture-in-picture. |
+| [`results/abbey_road_proximity.mp4`](results/abbey_road_proximity.mp4) | Zebra crossing at night (60 s, `--model weights/yolo26m.pt --frame-step 2`): pedestrians on the pavement and the crossing next to passing cars and vans, with alert states and the depth picture-in-picture. |
+| [`results/shinjuku_proximity.mp4`](results/shinjuku_proximity.mp4) | Night-time intersection (60 s): pedestrians crossing near cars, buses and trucks, with alert states and the depth picture-in-picture. |
+
+Try it on the sample clip in [`samples/`](samples/README.md):
+
+```bash
+proximity-alert -i samples/abbey_road_25s.mp4 -o outputs/abbey_road.mp4 --model weights/yolo26m.pt --frame-step 2
+```
 
 Source footage and attribution: see [results/README.md](results/README.md).
 

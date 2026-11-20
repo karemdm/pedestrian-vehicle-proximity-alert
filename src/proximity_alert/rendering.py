@@ -31,7 +31,9 @@ def draw_person(frame: np.ndarray, person: PersonResult) -> None:
     """Draws one person box, its contact lines and labels in place.
 
     Riders are drawn in orange with a ``Rider #id`` label. Pedestrians are green
-    (OK) or red (ALERT) with the window ratio and the smallest Delta Z.
+    (OK) or red (ALERT) with the window ratio and the smallest Delta Z (``N/A`` when no
+    vehicle passed the 2D gate). Contact lines are yellow while the person is OK and
+    red during an alert.
     """
     x1, y1, x2, y2 = person.box
     if person.is_rider:
@@ -61,7 +63,7 @@ def draw_person(frame: np.ndarray, person: PersonResult) -> None:
 
 
 def overlay_depth_pip(frame: np.ndarray, depth_map: np.ndarray, scale: float = 0.25, margin: int = 10) -> None:
-    """Pastes a colorized, scaled depth map in the top-right corner, in place.
+    """Pastes a colorized, scaled depth map with a white border in the top-right corner, in place.
 
     The float map is downscaled first and colorized at PiP size, so the colormap
     runs on ``scale**2`` of the pixels instead of the full frame.
@@ -69,7 +71,7 @@ def overlay_depth_pip(frame: np.ndarray, depth_map: np.ndarray, scale: float = 0
     Args:
         frame: Annotated BGR frame.
         depth_map: Normalized depth map ``z`` in ``[0, 1]`` (see :mod:`proximity_alert.depth`).
-        scale: PiP size relative to the frame.
+        scale: PiP size relative to the frame; nothing is drawn if it does not fit.
         margin: Distance in pixels from the top and right borders.
     """
     height, width = frame.shape[:2]

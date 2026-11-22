@@ -34,4 +34,5 @@ proximity-alert -i input.mp4 -o outputs/result.mp4 --model weights/yolo26x.pt
   available from Ultralytics). Redistributed unmodified.
 - Depth Anything V2 Small: Apache-2.0 (the Base/Large/Giant variants use a non-commercial license; only Small is used
   here).
-- Both YOLO weights are trained on COCO; only the classes person, bicycle, car, motorcycle, bus and truck are used.
+- Both YOLO weights are trained on COCO; only the classes person, bicycle, motorcycle, car, bus and truck are requested.
+  Bicycles and motorcycles are used to filter riders; cars, buses and trucks are the proximity targets.

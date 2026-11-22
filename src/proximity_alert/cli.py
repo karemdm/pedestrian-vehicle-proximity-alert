@@ -11,15 +11,16 @@ from proximity_alert.config import Config
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Creates the argument parser with the prototype defaults."""
+    """Creates the argument parser; defaults come from :class:`~proximity_alert.config.Config`."""
     d = Config()
     p = argparse.ArgumentParser(
         prog="proximity-alert",
         description="Flag pedestrians close to cars, buses and trucks using YOLO tracking "
-        "and monocular relative depth. Without --input, a setup window opens.",
+        "and monocular relative depth. Riders on bicycles and motorcycles are excluded; bicycles and "
+        "motorcycles are never proximity targets. Without --input, a setup window opens.",
     )
     p.add_argument("-i", "--input", help="Input video path. If omitted, the setup GUI is opened.")
-    p.add_argument("-o", "--output", help="Output MP4 path (required with --input).")
+    p.add_argument("-o", "--output", help="Output MP4 path (required with --input unless --gui is used).")
     p.add_argument("--gui", action="store_true", help="Open the setup GUI prefilled with the CLI values.")
     p.add_argument("--model", default=d.yolo_model, help="YOLO weights path or official name (default: %(default)s).")
     p.add_argument("--depth-model", default=d.depth_model, help="Hugging Face depth model id (default: %(default)s).")
@@ -32,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-ratio",
         type=float,
         default=d.min_ratio * 100,
-        help="Percentage of close frames in the window that triggers an alert (default: %(default)s).",
+        help="Percentage (0-100) of close frames in the window that triggers an alert (default: %(default)s).",
     )
     p.add_argument(
         "--depth-threshold",
@@ -51,16 +52,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--rider-overlap",
         type=float,
         default=d.rider_overlap,
-        help="Fraction of the person area covered by a bike/motorcycle to be a rider (default: %(default)s).",
+        help="Fraction (0-1) of the person area covered by a bicycle/motorcycle to be a rider (default: %(default)s).",
     )
     p.add_argument(
-        "--rider-memory", type=float, default=d.rider_memory, help="Seconds a rider status persists (default: %(default)s)."
+        "--rider-memory", type=float, default=d.rider_memory, help="Seconds the rider status persists after the last overlap (default: %(default)s)."
     )
     p.add_argument(
         "--depth-patch", type=int, default=d.depth_patch, help="Median depth patch size in pixels (default: %(default)s)."
     )
     p.add_argument(
-        "--pip-scale", type=float, default=d.pip_scale, help="Depth picture-in-picture scale (default: %(default)s)."
+        "--pip-scale", type=float, default=d.pip_scale, help="Depth picture-in-picture size relative to the frame, between 0 and 1 (default: %(default)s)."
     )
     p.add_argument(
         "--frame-step",

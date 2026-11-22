@@ -1,6 +1,6 @@
 """Configuration dataclass and COCO class constants.
 
-All defaults reproduce the original prototype.
+The defaults here are the ones used by the CLI, the setup window and the README.
 """
 
 from __future__ import annotations
@@ -11,10 +11,13 @@ PERSON_CLASS_ID = 0
 """COCO class id for ``person``."""
 
 RIDER_VEHICLE_CLASS_IDS = (1, 3)
-"""COCO class ids that can carry a rider: bicycle, motorcycle."""
+"""COCO class ids that can carry a rider: bicycle, motorcycle.
+
+They are detected and used to filter out riders, but are not proximity targets.
+"""
 
 TARGET_VEHICLE_CLASS_IDS = (2, 5, 7)
-"""COCO class ids checked for pedestrian proximity: car, bus, truck."""
+"""COCO class ids checked for pedestrian proximity: car, bus, truck (not bicycles or motorcycles)."""
 
 ALLOWED_CLASS_IDS = (PERSON_CLASS_ID,) + RIDER_VEHICLE_CLASS_IDS + TARGET_VEHICLE_CLASS_IDS
 """All classes requested from the detector."""
@@ -44,8 +47,9 @@ class Config:
         depth_patch: Side (pixels) of the square patch used for the median depth.
         pip_scale: Size of the depth picture-in-picture relative to the frame.
         display: Show a live preview window (press Q to stop).
-        frame_step: Process every Nth frame (1 = every frame). The output is written at
-            ``fps / frame_step`` so it plays at the original speed.
+        frame_step: Process every Nth frame (1 = every frame); skipped frames are not
+            drawn. The output is written at ``fps / frame_step`` so it plays at the
+            original speed, and time windows and rider memory use that rate.
     """
 
     input_path: str = ""

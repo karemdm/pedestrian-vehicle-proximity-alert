@@ -152,6 +152,7 @@ python -m proximity_alert --help
 | `--frame-step` | `1` | Process every Nth frame (at least 1). The output is written at `fps / N`, so it keeps the original speed. |
 | `--no-display` | off | Do not open the live preview window. |
 | `--log-level` | `INFO` | Logging verbosity. |
+| `--version` | — | Print the version and exit. |
 
 Numeric values are validated before processing: out-of-range values are rejected with a message (a CLI error, or a
 dialog in the setup window). The setup window exposes input/output, `imgsz`, `conf`, time window, min ratio, depth

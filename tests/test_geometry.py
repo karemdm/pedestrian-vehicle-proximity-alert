@@ -28,3 +28,26 @@ def test_foot_point_is_bottom_center():
 
 def test_clip_box_converts_to_int_and_clips():
     assert clip_box((-5.7, 3.9, 120.2, 90.0), 100, 80) == (0, 3, 100, 80)
+
+
+def test_clip_box_box_fully_outside_gives_empty_box():
+    x1, y1, x2, y2 = clip_box((120, 10, 150, 40), 100, 80)
+    assert x2 <= x1  # callers must drop empty boxes
+
+
+def test_foot_point_truncates_toward_zero_for_odd_widths():
+    assert foot_point((0, 0, 5, 9)) == (2, 9)
+
+
+def test_closest_point_is_a_corner_for_diagonal_queries():
+    box = (10, 10, 50, 50)
+    assert closest_point_on_box(box, -5, -5) == (10, 10)
+    assert closest_point_on_box(box, 60, 5) == (50, 10)
+
+
+def test_overlap_is_not_symmetric_and_uses_person_area():
+    from proximity_alert.geometry import overlap_ratio
+
+    person, big = (0, 0, 10, 10), (0, 0, 100, 100)
+    assert overlap_ratio(person, big) == 1.0
+    assert overlap_ratio(big, person) == 0.01

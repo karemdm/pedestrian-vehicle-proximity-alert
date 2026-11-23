@@ -45,7 +45,8 @@ def split_detections(result, width: int, height: int, warn_state: dict) -> _Dete
 
     When the tracker returns no ids, the detection index is used as a fallback id.
     Such ids are not stable across frames, so the temporal window and the rider
-    memory become unreliable; a warning is logged the first time it happens.
+    memory become unreliable; a warning is logged the first time it happens. Boxes that are empty after
+    clipping to the frame are dropped.
 
     Args:
         result: First element of ``YOLO.track(...)``.
@@ -75,6 +76,8 @@ def split_detections(result, width: int, height: int, warn_state: dict) -> _Dete
 
     for box, track_id, cls_id in zip(boxes, track_ids, classes):
         clipped = clip_box(box, width, height)
+        if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
+            continue  # entirely outside the frame (or empty) after clipping
         if cls_id == PERSON_CLASS_ID:
             dets.persons.append((int(track_id), clipped))
         elif cls_id in RIDER_VEHICLE_CLASS_IDS:

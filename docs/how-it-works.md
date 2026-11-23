@@ -6,21 +6,21 @@ and a temporal smoothing step.
 
 ```mermaid
 flowchart TD
-    A["Video frame"] --> B["Depth Anything V2 Small"]
+    A["Video frame<br/>every Nth frame with --frame-step"] --> B["Depth Anything V2 Small<br/>frame converted BGR to RGB"]
     B --> C["Per-frame min-max normalize + invert<br/>z(x, y): 0 = nearest, 1 = farthest"]
-    A --> D["YOLO tracking<br/>person, bicycle, motorcycle (rider filter)<br/>car, bus, truck (targets)"]
+    A --> D["YOLO tracking<br/>person, bicycle, motorcycle (rider filter)<br/>car, bus, truck (targets)<br/>boxes clipped to the frame"]
     D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
     E -- yes --> F["Rider: remembered 2 s, excluded"]
     E -- no --> G["Pedestrian: foot point f, height h"]
-    G --> H{"2D gate:<br/>distance to car / bus / truck box ≤ 1.0 · h"}
+    G --> H{"2D gate, per car / bus / truck:<br/>distance from f to the closest point c<br/>of the vehicle box ≤ 1.0 · h"}
     H -- no --> L
-    H -- yes --> I{"Depth gate:<br/>Δz ≤ 0.12 (7×7 median)"}
+    H -- yes --> I{"Depth gate:<br/>Δz = abs(z(f) - z(c)) ≤ 0.12<br/>(7×7 median patches)"}
     C --> I
-    I -- yes --> K["Close in this frame"]
+    I -- yes --> K["Close in this frame<br/>(any vehicle passes both gates)"]
     I -- no --> L["Not close"]
-    K --> M["1 s sliding window per track"]
+    K --> M["Sliding window per track<br/>1 s of video time"]
     L --> M
-    M --> N{"Close ratio ≥ 50 %<br/>or close now?"}
+    M --> N{"Close now,<br/>or close ratio ≥ 50 %<br/>(at least one close sample)?"}
     N -- yes --> O["ALERT"]
     N -- no --> P["OK"]
 ```
@@ -98,8 +98,13 @@ the person box height (at least 10 px).
    Pass if `‖f - c‖ ≤ height_factor × h` (default `1.0 × h`). Using the person height
    makes the radius scale with the apparent size of the person (perspective).
 2. **Depth gate**: `Δz = |z(f) - z(c)|`. Pass if `Δz ≤ depth_threshold` (0.12).
-   Sampling the vehicle at the contact point `c` (rather than its center) compares
+   Both samples are taken on the frame's depth map (points on the frame border are sampled with the patch clipped to
+   the image). Sampling the vehicle at the contact point `c` (rather than its center) compares
    depths at the part of the vehicle closest to the person.
+
+If `f` lies inside the vehicle box, `c = f`, so `Δz = 0` and the pair always passes the depth gate (known limitation:
+people in front of a vehicle or inside it are not separated by depth). If the frame's depth map is constant,
+`z = 1` everywhere and the depth gate also passes every pair.
 
 A pedestrian is *currently close* if any vehicle passes both gates. The smallest
 `Δz` among vehicles passing the 2D gate is shown as `Delta Z`.
@@ -113,7 +118,7 @@ at higher steps). Then:
 
 ```
 ratio = (# close samples) / (# samples in window)
-ALERT  if  ratio ≥ min_ratio (50 %)  or  currently close
+ALERT  if  currently close  or  (ratio > 0 and ratio ≥ min_ratio (50 %))
 ```
 
 Histories of tracks that have not been seen for longer than a grace period (the
@@ -161,6 +166,6 @@ for example `--min-ratio` must be 0-100, `--pip-scale` between 0 and 1 (exclusiv
   physical gap gives different `Δz` depending on the depth range visible in the frame
   (e.g. sky or a far background stretches the range).
 - Check the `Delta Z` label on known close/not-close cases to pick a threshold.
-- Start with `--height-factor 1.0`; lower it for top-down cameras where people look small.
+- Start with `--height-factor 1.0`; raise it for top-down or distant cameras where people look small (the radius is `height_factor` times the person height).
 - If IDs switch often, alerts flicker; a higher `--conf` or a larger model may help.
 - Use `--no-display` on headless machines; the output video is still written.

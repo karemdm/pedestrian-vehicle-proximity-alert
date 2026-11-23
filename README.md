@@ -25,21 +25,21 @@ smooths the decision into an `OK` / `ALERT` state, and an annotated video is wri
 
 ```mermaid
 flowchart TD
-    A["Video frame"] --> B["Depth Anything V2 Small"]
+    A["Video frame<br/>every Nth frame with --frame-step"] --> B["Depth Anything V2 Small<br/>frame converted BGR to RGB"]
     B --> C["Per-frame min-max normalize + invert<br/>z(x, y): 0 = nearest, 1 = farthest"]
-    A --> D["YOLO tracking<br/>person, bicycle, motorcycle (rider filter)<br/>car, bus, truck (targets)"]
+    A --> D["YOLO tracking<br/>person, bicycle, motorcycle (rider filter)<br/>car, bus, truck (targets)<br/>boxes clipped to the frame"]
     D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
     E -- yes --> F["Rider: remembered 2 s, excluded"]
     E -- no --> G["Pedestrian: foot point f, height h"]
-    G --> H{"2D gate:<br/>distance to car / bus / truck box ≤ 1.0 · h"}
+    G --> H{"2D gate, per car / bus / truck:<br/>distance from f to the closest point c<br/>of the vehicle box ≤ 1.0 · h"}
     H -- no --> L
-    H -- yes --> I{"Depth gate:<br/>Δz ≤ 0.12 (7×7 median)"}
+    H -- yes --> I{"Depth gate:<br/>Δz = abs(z(f) - z(c)) ≤ 0.12<br/>(7×7 median patches)"}
     C --> I
-    I -- yes --> K["Close in this frame"]
+    I -- yes --> K["Close in this frame<br/>(any vehicle passes both gates)"]
     I -- no --> L["Not close"]
-    K --> M["1 s sliding window per track"]
+    K --> M["Sliding window per track<br/>1 s of video time"]
     L --> M
-    M --> N{"Close ratio ≥ 50 %<br/>or close now?"}
+    M --> N{"Close now,<br/>or close ratio ≥ 50 %<br/>(at least one close sample)?"}
     N -- yes --> O["ALERT"]
     N -- no --> P["OK"]
 ```
@@ -135,14 +135,14 @@ python -m proximity_alert --help
 | Name | Default | Description |
 |---|---|---|
 | `-i, --input` | — | Input video. If omitted, the setup window opens. |
-| `-o, --output` | — | Output MP4 (required with `--input` unless `--gui` is used). |
+| `-o, --output` | — | Output MP4 (required with `--input` unless `--gui` is used); must differ from the input path. |
 | `--gui` | off | Open the setup window prefilled with the CLI values. |
 | `--model` | `yolo26x.pt` | YOLO weights path or official name (auto-downloaded). The shipped lighter model is `weights/yolo26m.pt`. |
 | `--depth-model` | `depth-anything/Depth-Anything-V2-Small-hf` | Hugging Face depth model id. |
 | `--imgsz` | `1280` | YOLO inference size. |
 | `--conf` | `0.10` | YOLO confidence threshold (0-1). |
 | `--time-window` | `1.0` | Sliding window length in seconds of video time (greater than 0). |
-| `--min-ratio` | `50` | Percentage (0-100) of close frames in the window that triggers an alert. |
+| `--min-ratio` | `50` | Percentage (0-100) of close frames in the window that triggers an alert (an alert always needs at least one close frame). |
 | `--depth-threshold` | `0.12` | Max \|z_person − z_vehicle\| on the per-frame normalized depth map z in [0, 1] (0 or more). |
 | `--height-factor` | `1.0` | 2D gate radius as a multiple of the person box height (greater than 0). |
 | `--rider-overlap` | `0.50` | Fraction (0-1) of the person box covered by a bicycle/motorcycle to be a rider. |
@@ -182,7 +182,8 @@ proximity-alert -i input.mp4 -o outputs/result.mp4 --frame-step 3 --no-display
     each vehicle contact point (yellow while `OK`, red during an `ALERT`);
   - the colorized depth map `z` (INFERNO: near = dark, far = bright) with a white border, at `--pip-scale` (25 % by
     default) of the frame size in the top-right corner.
-- A progress line in the terminal with the frame count and processing FPS.
+- A progress line in the terminal with the frame count and processing FPS. The exit code is 0 on success and 1 if the
+  input or output cannot be opened, the paths are equal, or no frame could be read.
 
 No alert log or event file is written; alerts exist only as video annotations.
 
@@ -221,17 +222,23 @@ pedestrian-vehicle-proximity-alert/
 │   ├── temporal.py     # sliding window and rider memory (stdlib)
 │   └── validation.py   # parameter checks shared by CLI and setup window (stdlib)
 └── tests/
+    ├── test_cli.py
+    ├── test_depth.py
+    ├── test_docs.py
     ├── test_frame_step.py
     ├── test_geometry.py
+    ├── test_pipeline_run.py
     ├── test_proximity.py
+    ├── test_rendering.py
     ├── test_rider.py
+    ├── test_split_detections.py
     ├── test_temporal.py
     ├── test_track_gap.py
     └── test_validation.py
 ```
 
-Run the tests with `pytest` (they only need the standard library and `src` on the path, e.g. after `pip install -e .`
-or with `PYTHONPATH=src`).
+Run the tests with `pytest` (no models or GPU needed: they use synthetic arrays and fake detectors, and only need the
+requirements plus `src` on the path, e.g. after `pip install -e .` or with `PYTHONPATH=src`).
 
 ## Limitations
 
@@ -248,6 +255,10 @@ or with `PYTHONPATH=src`).
   partially visible or occluded people get a smaller radius.
 - **Tracking quality drives the result.** ID switches reset the time window and the rider memory. If the tracker
   returns no IDs, per-frame detection indices are used (a warning is logged) and temporal smoothing is unreliable.
+- **Depth gate is blind to people inside a vehicle box.** When the foot point lies inside a car/bus/truck box (people in
+  front of a vehicle, or passengers), the contact point equals the foot, both depth samples coincide and `Δz` is 0.
+- **Degenerate depth frames.** If the depth map of a frame is constant (e.g. a black frame), `z` is 1 everywhere and the
+  depth gate passes every pair that passes the 2D gate.
 - Riders are detected only by box overlap; a pedestrian standing next to a parked bicycle may be excluded, and a
   rider whose box overlaps the bike less than `--rider-overlap` (50 % by default) is treated as a pedestrian.
 - Bicycles and motorcycles are not proximity targets: only cars, buses and trucks are checked.

@@ -28,3 +28,13 @@ def test_invalid_values_are_reported():
 
 def test_nan_is_rejected():
     assert config_errors(replace(Config(), conf=float("nan"))) != []
+
+
+def test_path_errors(tmp_path):
+    from proximity_alert.validation import path_errors
+
+    a = tmp_path / "a.mp4"
+    a.write_bytes(b"x")
+    assert path_errors(replace(Config(), input_path=str(a), output_path=str(tmp_path / "b.mp4"))) == []
+    assert path_errors(replace(Config(), input_path=str(a), output_path=str(tmp_path / "." / "a.mp4"))) != []
+    assert path_errors(Config()) == []  # unset paths are reported elsewhere

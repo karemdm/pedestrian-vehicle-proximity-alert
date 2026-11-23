@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 from typing import List
 
 from proximity_alert.config import Config
@@ -38,3 +39,24 @@ def config_errors(config: Config) -> List[str]:
     check(finite(config.pip_scale) and 0.0 < config.pip_scale < 1.0, "pip scale must be between 0 and 1 (exclusive)")
     check(config.frame_step >= 1, "frame step must be at least 1")
     return errors
+
+
+def path_errors(config: Config) -> List[str]:
+    """Returns problems with the input/output paths (empty if valid).
+
+    Only the paths are compared; the existence of the input file is checked by the caller.
+
+    Args:
+        config: Configuration to check.
+
+    Returns:
+        One message per problem.
+    """
+    if not config.input_path or not config.output_path:
+        return []
+    same = os.path.normcase(os.path.abspath(config.input_path)) == os.path.normcase(
+        os.path.abspath(config.output_path)
+    )
+    if not same and os.path.exists(config.input_path) and os.path.exists(config.output_path):
+        same = os.path.samefile(config.input_path, config.output_path)
+    return ["output path must differ from the input path (the input video would be overwritten)"] if same else []

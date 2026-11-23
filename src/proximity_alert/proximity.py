@@ -117,7 +117,7 @@ class ProximityEvaluator:
 
     def _check_vehicles(self, person: PersonResult, vehicles: Sequence[Box], depth_at: DepthFn) -> None:
         """Applies the 2D gate and the depth gate against every target vehicle."""
-        x1, y1, x2, y2 = person.box
+        _, y1, _, y2 = person.box
         max_dist = max(MIN_PERSON_HEIGHT_PX, y2 - y1) * self.config.height_factor
         for vbox in vehicles:
             contact = closest_point_on_box(vbox, *person.foot)

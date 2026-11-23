@@ -2,8 +2,8 @@
 
 Annotated videos produced by this project.
 
-- `abbey_road_proximity.mp4`: Zebra crossing at night (made with `--model weights/yolo26m.pt --frame-step 2`): pedestrians next to passing cars and vans, with alert states and the depth picture-in-picture.
-- `shinjuku_proximity.mp4`: Night-time intersection: pedestrians crossing near cars, buses and trucks, with alert states and the depth picture-in-picture.
+- `abbey_road_proximity.mp4`: Zebra crossing at night (made with `--model weights/yolo26m.pt --frame-step 2`): pedestrians next to passing cars, vans, a truck and a double-decker bus, with alert states and the depth picture-in-picture.
+- `shinjuku_proximity.mp4`: Night-time intersection: pedestrians crossing near cars (many of them taxis) and trucks, with alert states and the depth picture-in-picture.
 
 ## Source footage
 

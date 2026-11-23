@@ -2,7 +2,7 @@
 
 | File | Content |
 |---|---|
-| `abbey_road_25s.mp4` | 25 s of the Abbey Road zebra crossing in London at night (1280x720, no audio): pedestrians, cars, vans and a bus. |
+| `abbey_road_25s.mp4` | 25 s of the Abbey Road zebra crossing in London at night (1280×720, 30 FPS, no audio): pedestrians, cars, vans and a bus. |
 
 ## Usage
 

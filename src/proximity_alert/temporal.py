@@ -78,8 +78,12 @@ class ProximityHistory:
 
 
 def is_alert(ratio: float, currently_close: bool, min_ratio: float) -> bool:
-    """Alert rule: enough close frames in the window, or close right now."""
-    return ratio >= min_ratio or currently_close
+    """Alert rule: enough close frames in the window, or close right now.
+
+    At least one close frame is always required: with ``min_ratio == 0`` a person
+    who was never close is not an alert.
+    """
+    return currently_close or (ratio > 0.0 and ratio >= min_ratio)
 
 
 class RiderMemory:

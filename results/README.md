@@ -9,6 +9,7 @@ Annotated videos produced by this project.
 
 - `abbey_road_proximity.mp4`: captured from the public Abbey Road crossing live webcam on YouTube, https://www.youtube.com/watch?v=zMCea32gpmg
 - `shinjuku_proximity.mp4`: a publicly available street recording.
+- `docs/assets/demo.gif`: 6 s demo (720×406, 10 FPS) made from the same Shinjuku footage as `shinjuku_proximity.mp4`.
 <!-- TODO(author): add the link of the Shinjuku source video. -->
 
 People appear in public spaces; the outputs are shown only to illustrate the method.

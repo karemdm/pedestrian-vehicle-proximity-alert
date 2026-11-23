@@ -28,7 +28,7 @@ from proximity_alert.rendering import render
 
 logger = logging.getLogger(__name__)
 
-WINDOW_NAME = "Proximity Monitoring System"
+WINDOW_NAME = "Proximity Alert"
 
 
 class _Detections:
@@ -186,7 +186,7 @@ def run(config: Config) -> int:
 
             if config.display:
                 cv2.imshow(WINDOW_NAME, frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
+                if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q")):
                     logger.info("Stopped by user")
                     break
     finally:

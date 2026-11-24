@@ -3,7 +3,7 @@
 Flags pedestrians that get close to cars, buses and trucks in a video, using YOLO tracking and monocular relative depth.
 
 Each frame is processed with Depth Anything V2 Small (relative depth) and an Ultralytics YOLO tracker. Riders on
-bicycles and motorcycles are filtered out; every remaining pedestrian is tested against each vehicle with a 2D
+bicycles and motorcycles and occupants of cars, buses and trucks are filtered out; every remaining pedestrian is tested against each vehicle with a 2D
 distance gate scaled by the person's height and a depth-difference gate. A short sliding time window per track
 smooths the decision into an `OK` / `ALERT` state, and an annotated video is written.
 
@@ -14,9 +14,14 @@ smooths the decision into an `OK` / `ALERT` state, and an annotated video is wri
 - Tkinter setup window (input/output paths and alert parameters) or a full CLI.
 - YOLO tracking of persons, bicycles, motorcycles, cars, buses and trucks.
 - Rider filtering: persons overlapping a bicycle/motorcycle are excluded (2 s memory by default).
+- Occupant filtering: persons mostly inside a car/bus/truck box and at its depth (drivers, passengers) are excluded
+  (2 s memory, `--occupant-overlap`).
 - Proximity targets are cars, buses and trucks only. Bicycles and motorcycles are detected and drawn, and used to
   recognize riders, but a pedestrian near one is never flagged.
 - Two-stage proximity gate: 2D distance to the closest point of the vehicle box, then median-patch depth difference.
+  When the foot is inside the vehicle box, the vehicle depth is the median of a 3×3 grid inside the box, so people
+  standing in front of a vehicle are separated by depth.
+- Frames whose depth map is constant (no depth evidence) are skipped for proximity instead of alerting every pair.
 - Per-person sliding time window with a close-frame ratio.
 - Annotated output video with contact lines, ratio and Delta Z labels, and a depth picture-in-picture.
 - Live preview (press `Q` to stop) or headless mode (`--no-display`).
@@ -27,14 +32,18 @@ smooths the decision into an `OK` / `ALERT` state, and an annotated video is wri
 flowchart TD
     A["Video frame<br/>every Nth frame with --frame-step"] --> B["Depth Anything V2 Small<br/>frame converted BGR to RGB"]
     B --> C["Per-frame min-max normalize + invert<br/>z(x, y): 0 = nearest, 1 = farthest"]
+    C --> R{"Depth map constant?<br/>(no depth evidence)"}
+    R -- yes --> S["Frame skipped for proximity:<br/>nobody close, no window sample<br/>(warning logged once)"]
     A --> D["YOLO tracking<br/>person, bicycle, motorcycle (rider filter)<br/>car, bus, truck (targets)<br/>boxes clipped to the frame"]
     D --> E{"Person overlaps a bike / motorcycle<br/>≥ 50 % of its area?"}
     E -- yes --> F["Rider: remembered 2 s, excluded"]
-    E -- no --> G["Pedestrian: foot point f, height h"]
+    E -- no --> T{"Person ≥ 80 % inside a car / bus / truck box<br/>and at its depth (Δz ≤ 0.12)?"}
+    T -- yes --> U["Occupant: remembered 2 s, excluded"]
+    T -- no --> G["Pedestrian: foot point f, height h"]
     G --> H{"2D gate, per car / bus / truck:<br/>distance from f to the closest point c<br/>of the vehicle box ≤ 1.0 · h"}
     H -- no --> L
-    H -- yes --> I{"Depth gate:<br/>Δz = abs(z(f) - z(c)) ≤ 0.12<br/>(7×7 median patches)"}
-    C --> I
+    H -- yes --> I{"Depth gate:<br/>Δz = abs(z(f) - z_vehicle) ≤ 0.12<br/>z_vehicle = z(c) if f is outside the box,<br/>else median of 3×3 interior points"}
+    R -- no --> I
     I -- yes --> K["Close in this frame<br/>(any vehicle passes both gates)"]
     I -- no --> L["Not close"]
     K --> M["Sliding window per track<br/>1 s of video time"]
@@ -93,7 +102,9 @@ the repository and needs no YOLO download: pass `--model weights/yolo26m.pt`. Se
 
 ## Results
 
-Example outputs produced by this project (re-encoded to H.264, 1280×720, no audio):
+Example outputs produced by this project (re-encoded to H.264, 1280×720, no audio). They were produced before the
+vehicle-depth and occupant changes described below, so people standing in front of or inside a vehicle may be alerted
+in them; re-running the commands gives the current behaviour.
 
 | File | Content |
 |---|---|
@@ -147,7 +158,7 @@ python -m proximity_alert --help
 | `--height-factor` | `1.0` | 2D gate radius as a multiple of the person box height (greater than 0). |
 | `--rider-overlap` | `0.50` | Fraction (0-1) of the person box covered by a bicycle/motorcycle to be a rider. |
 | `--occupant-overlap` | `0.80` | Fraction (0-1) of the person box inside a car/bus/truck box (and at the vehicle's depth) to be an occupant, excluded like a rider. |
-| `--rider-memory` | `2.0` | Seconds the rider status persists after the last overlap (0 or more). |
+| `--rider-memory` | `2.0` | Seconds the rider or occupant status persists after the last overlap (0 or more). |
 | `--depth-patch` | `7` | Side in pixels of the median depth patch (at least 1; even values are rounded up to odd). |
 | `--pip-scale` | `0.25` | Size of the depth picture-in-picture relative to the frame (between 0 and 1, exclusive). |
 | `--frame-step` | `1` | Process every Nth frame (at least 1). The output is written at `fps / N`, so it keeps the original speed. |
@@ -177,7 +188,7 @@ proximity-alert -i input.mp4 -o outputs/result.mp4 --frame-step 3 --no-display
 
 - An MP4 video (`mp4v`, same resolution as the input, same FPS divided by `--frame-step`) with:
   - target vehicles (cars, buses, trucks) in blue, bicycles/motorcycles in cyan;
-  - riders in orange (`Rider #id`);
+  - riders in orange (`Rider #id`) and occupants of vehicles in magenta (`Occupant #id`);
   - pedestrians in green (`OK`) or red (`ALERT`), labeled `Person #id [STATUS (ratio%)]` and
     `Delta Z: <min Δz> (Z: <person z>)` (`N/A` when no vehicle passed the 2D gate), with lines from the foot point to
     each vehicle contact point (yellow while `OK`, red during an `ALERT`);
@@ -256,10 +267,16 @@ requirements plus `src` on the path, e.g. after `pip install -e .` or with `PYTH
   partially visible or occluded people get a smaller radius.
 - **Tracking quality drives the result.** ID switches reset the time window and the rider memory. If the tracker
   returns no IDs, per-frame detection indices are used (a warning is logged) and temporal smoothing is unreliable.
-- **Depth gate is blind to people inside a vehicle box.** When the foot point lies inside a car/bus/truck box (people in
-  front of a vehicle, or passengers), the contact point equals the foot, both depth samples coincide and `Δz` is 0.
-- **Degenerate depth frames.** If the depth map of a frame is constant (e.g. a black frame), `z` is 1 everywhere and the
-  depth gate passes every pair that passes the 2D gate.
+- **Vehicle depth inside the box is approximate.** When the foot lies inside a car/bus/truck box, the vehicle depth is
+  the median of a 3×3 grid in the middle half of the box (points covered by the person are ignored). Boxes of large or
+  oblique vehicles can contain background or other objects there, and a person at nearly the vehicle's depth (within
+  `--depth-threshold`) is still treated as close, or as an occupant if the box is mostly inside the vehicle.
+- **Occupants need depth and overlap.** A person is an occupant only if at least `--occupant-overlap` of the box is
+  inside a vehicle box and the person is at the vehicle's depth; a pedestrian right behind a car window or crossing
+  just in front of a bus at the same depth can be misclassified. The status is remembered for `--rider-memory`.
+- **Degenerate depth frames.** If the depth map of a frame is constant (e.g. a black frame), the frame is skipped for
+  proximity: nobody is close in it, no sample is added to the windows, and a warning is logged once. Alert states
+  come from the windows of the neighbouring frames.
 - Riders are detected only by box overlap; a pedestrian standing next to a parked bicycle may be excluded, and a
   rider whose box overlaps the bike less than `--rider-overlap` (50 % by default) is treated as a pedestrian.
 - Bicycles and motorcycles are not proximity targets: only cars, buses and trucks are checked.

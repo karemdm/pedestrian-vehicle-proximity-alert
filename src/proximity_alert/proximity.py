@@ -20,6 +20,7 @@ from proximity_alert.geometry import (
     foot_point,
     inner_sample_points,
     is_rider,
+    overlap_ratio,
 )
 from proximity_alert.temporal import ProximityHistory, RiderMemory, is_alert
 
@@ -75,6 +76,8 @@ class PersonResult:
         z: Median normalized depth at the foot point, in [0, 1] (0 = nearest,
             1 = farthest surface of the frame; see :mod:`proximity_alert.depth`).
         is_rider: Person is (or recently was) on a bicycle/motorcycle; skipped.
+        is_occupant: Person is (or recently was) inside a car/bus/truck box at the
+            vehicle's depth (driver or passenger); skipped like a rider.
         currently_close: Passed both the 2D and the depth gate in this frame.
         min_dz: Smallest depth difference among vehicles passing the 2D gate.
         connections: ``(foot, vehicle_contact_point)`` pairs that passed both gates.
@@ -87,6 +90,7 @@ class PersonResult:
     foot: Point
     z: float
     is_rider: bool = False
+    is_occupant: bool = False
     currently_close: bool = False
     min_dz: Optional[float] = None
     connections: List[Tuple[Point, Point]] = field(default_factory=list)
@@ -105,6 +109,7 @@ class ProximityEvaluator:
         self.config = config
         self.history = ProximityHistory(config.time_window)
         self.riders = RiderMemory(config.rider_memory)
+        self.occupants = RiderMemory(config.rider_memory)
 
     def evaluate(
         self,
@@ -144,18 +149,40 @@ class ProximityEvaluator:
                 person.is_rider = True
                 continue
 
+            if self._is_occupant_now(person, target_vehicle_boxes, depth_at, frame_size):
+                self.occupants.mark(track_id, timestamp)
+            if self.occupants.is_rider(track_id, timestamp):
+                person.is_occupant = True
+                continue
+
             self._check_vehicles(person, target_vehicle_boxes, depth_at, frame_size)
             self.history.update(track_id, timestamp, person.currently_close)
 
         # Keep tracks that vanished briefly (missed detections); drop them after the grace period.
         self.history.prune_stale(timestamp, max(MIN_TRACK_GRACE_SEC, cfg.time_window))
         self.riders.cleanup(timestamp)
+        self.occupants.cleanup(timestamp)
 
         for person in results:
-            if not person.is_rider:
+            if not (person.is_rider or person.is_occupant):
                 person.ratio = self.history.ratio(person.track_id)
                 person.alert = is_alert(person.ratio, person.currently_close, cfg.min_ratio)
         return results
+
+    def _is_occupant_now(
+        self, person: PersonResult, vehicles: Sequence[Box], depth_at: DepthFn, frame_size: Tuple[int, int]
+    ) -> bool:
+        """Whether the person box is mostly inside a vehicle box *and* at the vehicle's depth.
+
+        The depth condition keeps a pedestrian standing in front of a bus (whose box is
+        entirely inside the bus box in the image) from being taken for a passenger.
+        """
+        for vbox in vehicles:
+            if overlap_ratio(person.box, vbox) < self.config.occupant_overlap:
+                continue
+            if abs(person.z - vehicle_depth(vbox, person.box, depth_at, frame_size)) <= self.config.depth_threshold:
+                return True
+        return False
 
     def _check_vehicles(
         self, person: PersonResult, vehicles: Sequence[Box], depth_at: DepthFn, frame_size: Tuple[int, int]

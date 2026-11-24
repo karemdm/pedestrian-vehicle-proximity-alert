@@ -146,6 +146,7 @@ python -m proximity_alert --help
 | `--depth-threshold` | `0.12` | Max \|z_person − z_vehicle\| on the per-frame normalized depth map z in [0, 1] (0 or more). |
 | `--height-factor` | `1.0` | 2D gate radius as a multiple of the person box height (greater than 0). |
 | `--rider-overlap` | `0.50` | Fraction (0-1) of the person box covered by a bicycle/motorcycle to be a rider. |
+| `--occupant-overlap` | `0.80` | Fraction (0-1) of the person box inside a car/bus/truck box (and at the vehicle's depth) to be an occupant, excluded like a rider. |
 | `--rider-memory` | `2.0` | Seconds the rider status persists after the last overlap (0 or more). |
 | `--depth-patch` | `7` | Side in pixels of the median depth patch (at least 1; even values are rounded up to odd). |
 | `--pip-scale` | `0.25` | Size of the depth picture-in-picture relative to the frame (between 0 and 1, exclusive). |

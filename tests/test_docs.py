@@ -49,6 +49,7 @@ def test_documented_defaults_match_config():
         ("--depth-threshold", d.depth_threshold),
         ("--height-factor", d.height_factor),
         ("--rider-overlap", f"{d.rider_overlap:.2f}"),
+        ("--occupant-overlap", f"{d.occupant_overlap:.2f}"),
         ("--rider-memory", d.rider_memory),
         ("--depth-patch", d.depth_patch),
         ("--pip-scale", d.pip_scale),

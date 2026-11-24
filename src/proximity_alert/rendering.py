@@ -15,6 +15,7 @@ from proximity_alert.proximity import PersonResult
 VEHICLE_COLOR = (255, 0, 0)  # blue
 RIDER_VEHICLE_COLOR = (255, 255, 0)  # cyan
 RIDER_COLOR = (0, 165, 255)  # orange
+OCCUPANT_COLOR = (255, 0, 255)  # magenta
 OK_COLOR = (0, 255, 0)  # green
 ALERT_COLOR = (0, 0, 255)  # red
 LINE_COLOR = (0, 255, 255)  # yellow
@@ -30,12 +31,17 @@ def draw_boxes(frame: np.ndarray, boxes: Sequence[Box], color: tuple) -> None:
 def draw_person(frame: np.ndarray, person: PersonResult) -> None:
     """Draws one person box, its contact lines and labels in place.
 
-    Riders are drawn in orange with a ``Rider #id`` label. Pedestrians are green
+    Riders are drawn in orange with a ``Rider #id`` label and occupants of a
+    vehicle in magenta with ``Occupant #id``. Pedestrians are green
     (OK) or red (ALERT) with the window ratio and the smallest Delta Z (``N/A`` when no
     vehicle passed the 2D gate). Contact lines are yellow while the person is OK and
     red during an alert.
     """
     x1, y1, x2, y2 = person.box
+    if person.is_occupant:
+        cv2.rectangle(frame, (x1, y1), (x2, y2), OCCUPANT_COLOR, 2)
+        cv2.putText(frame, f"Occupant #{person.track_id}", (x1, max(20, y1 - 8)), FONT, 0.45, OCCUPANT_COLOR, 2)
+        return
     if person.is_rider:
         cv2.rectangle(frame, (x1, y1), (x2, y2), RIDER_COLOR, 2)
         cv2.putText(frame, f"Rider #{person.track_id}", (x1, max(20, y1 - 8)), FONT, 0.45, RIDER_COLOR, 2)

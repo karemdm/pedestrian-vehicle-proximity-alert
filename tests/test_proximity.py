@@ -161,13 +161,14 @@ def region_depth(person_box, person_z, vehicle_z, vehicle_box=CAR, road_z=0.8):
 
 
 IN_FRONT = (150, 300, 170, 380)  # box inside the car box, foot (160, 380) inside it
+OCCUPANT_BOX = (150, 310, 190, 390)  # driver: fully inside the car box
 
 
 def test_person_in_front_of_a_vehicle_with_a_depth_gap_is_not_alerted():
     ev = ProximityEvaluator(Config())
     depth = region_depth(IN_FRONT, person_z=0.2, vehicle_z=0.6)
     (p,) = ev.evaluate([(1, IN_FRONT)], [], [CAR], depth, 0.0, FRAME)
-    assert not p.currently_close and not p.alert
+    assert not p.is_occupant and not p.currently_close and not p.alert
     assert p.min_dz == pytest.approx(0.4)  # vehicle sampled inside the box, not at the foot
 
 
@@ -180,10 +181,10 @@ def test_person_in_front_of_a_vehicle_is_rejected_by_a_zero_threshold():
 
 def test_person_beside_a_vehicle_at_the_same_depth_is_still_alerted():
     ev = ProximityEvaluator(Config())
-    beside = (280, 300, 320, 400)  # half of the box over the car; foot (300, 400) on the border
+    beside = (280, 300, 320, 400)  # 50 % of the box over the car: not an occupant; foot (300, 400) on the border
     depth = region_depth(beside, person_z=0.6, vehicle_z=0.6)
     (p,) = ev.evaluate([(1, beside)], [], [CAR], depth, 0.0, FRAME)
-    assert p.currently_close and p.alert
+    assert not p.is_occupant and p.currently_close and p.alert
     assert p.min_dz == pytest.approx(0.0)
 
 
@@ -193,6 +194,35 @@ def test_person_overlapping_the_vehicle_edge_at_a_different_depth_is_not_alerted
     depth = region_depth(beside, person_z=0.2, vehicle_z=0.6)
     (p,) = ev.evaluate([(1, beside)], [], [CAR], depth, 0.0, FRAME)
     assert not p.currently_close and not p.alert
+
+
+def test_occupant_inside_a_vehicle_at_its_depth_is_excluded_and_remembered():
+    ev = ProximityEvaluator(Config())
+    depth = region_depth(OCCUPANT_BOX, person_z=0.6, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, OCCUPANT_BOX)], [], [CAR], depth, 0.0, FRAME)
+    assert p.is_occupant and not p.is_rider and not p.alert and not p.connections
+    # detected half outside the vehicle a moment later: still an occupant (memory)
+    half_out = (260, 310, 340, 390)
+    (p,) = ev.evaluate([(1, half_out)], [], [CAR], depth, 1.0, FRAME)
+    assert p.is_occupant and not p.alert
+    (p,) = ev.evaluate([(1, half_out)], [], [CAR], depth, 3.5, FRAME)  # memory (2 s) expired
+    assert not p.is_occupant
+
+
+def test_occupant_overlap_threshold_is_configurable():
+    depth = region_depth(OCCUPANT_BOX, person_z=0.6, vehicle_z=0.6)
+    partly = (260, 310, 340, 390)  # 50 % inside the car box
+    (p,) = ProximityEvaluator(Config(occupant_overlap=0.4)).evaluate([(1, partly)], [], [CAR], depth, 0.0, FRAME)
+    assert p.is_occupant
+    (p,) = ProximityEvaluator(Config()).evaluate([(1, partly)], [], [CAR], depth, 0.0, FRAME)
+    assert not p.is_occupant
+
+
+def test_person_inside_a_vehicle_box_at_a_different_depth_is_not_an_occupant():
+    ev = ProximityEvaluator(Config())
+    depth = region_depth(OCCUPANT_BOX, person_z=0.1, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, OCCUPANT_BOX)], [], [CAR], depth, 0.0, FRAME)
+    assert not p.is_occupant and not p.alert
 
 
 def test_foot_outside_the_vehicle_box_still_samples_the_border_point():

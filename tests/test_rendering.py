@@ -6,6 +6,7 @@ from proximity_alert.proximity import PersonResult
 from proximity_alert.rendering import (
     ALERT_COLOR,
     OK_COLOR,
+    OCCUPANT_COLOR,
     RIDER_COLOR,
     draw_person,
     overlay_depth_pip,
@@ -49,6 +50,7 @@ def test_person_colors_ok_alert_rider():
         (_person(), OK_COLOR),
         (_person(alert=True, ratio=1.0, min_dz=0.0), ALERT_COLOR),
         (_person(is_rider=True), RIDER_COLOR),
+        (_person(is_occupant=True), OCCUPANT_COLOR),
     ]:
         frame = _frame()
         draw_person(frame, person)

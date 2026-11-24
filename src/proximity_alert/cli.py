@@ -16,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="proximity-alert",
         description="Flag pedestrians close to cars, buses and trucks using YOLO tracking "
-        "and monocular relative depth. Riders on bicycles and motorcycles are excluded; bicycles and "
+        "and monocular relative depth. Riders on bicycles and motorcycles and occupants of cars, buses and trucks are excluded; bicycles and "
         "motorcycles are never proximity targets. Without --input, a setup window opens.",
     )
     p.add_argument("-i", "--input", help="Input video path. If omitted, the setup GUI is opened.")
@@ -55,6 +55,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fraction (0-1) of the person area covered by a bicycle/motorcycle to be a rider (default: %(default)s).",
     )
     p.add_argument(
+        "--occupant-overlap",
+        type=float,
+        default=d.occupant_overlap,
+        help="Fraction (0-1) of the person area inside a car/bus/truck box (at the vehicle's depth) "
+        "to be an occupant, which is excluded like a rider (default: %(default)s).",
+    )
+    p.add_argument(
         "--rider-memory", type=float, default=d.rider_memory, help="Seconds the rider status persists after the last overlap (default: %(default)s)."
     )
     p.add_argument(
@@ -90,6 +97,7 @@ def config_from_args(args: argparse.Namespace) -> Config:
         depth_threshold=args.depth_threshold,
         height_factor=args.height_factor,
         rider_overlap=args.rider_overlap,
+        occupant_overlap=args.occupant_overlap,
         rider_memory=args.rider_memory,
         depth_patch=args.depth_patch,
         pip_scale=args.pip_scale,

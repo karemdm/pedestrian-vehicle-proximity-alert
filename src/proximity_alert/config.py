@@ -43,7 +43,10 @@ class Config:
         height_factor: 2D gate radius as a multiple of the person bbox height.
         rider_overlap: Minimum fraction of the person area covered by a bicycle or
             motorcycle box for the person to be considered a rider.
-        rider_memory: Seconds a person keeps the rider status after the last overlap.
+        occupant_overlap: Minimum fraction of the person area inside a car/bus/truck box
+            (and at the vehicle's depth) for the person to be an occupant (driver or
+            passenger) instead of a pedestrian.
+        rider_memory: Seconds a person keeps the rider (or occupant) status after the last overlap.
         depth_patch: Side (pixels) of the square patch used for the median depth.
         pip_scale: Size of the depth picture-in-picture relative to the frame.
         display: Show a live preview window (press Q to stop).
@@ -63,6 +66,7 @@ class Config:
     depth_threshold: float = 0.12
     height_factor: float = 1.0
     rider_overlap: float = 0.50
+    occupant_overlap: float = 0.80
     rider_memory: float = 2.0
     depth_patch: int = 7
     pip_scale: float = 0.25

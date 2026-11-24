@@ -38,3 +38,11 @@ def test_path_errors(tmp_path):
     assert path_errors(replace(Config(), input_path=str(a), output_path=str(tmp_path / "b.mp4"))) == []
     assert path_errors(replace(Config(), input_path=str(a), output_path=str(tmp_path / "." / "a.mp4"))) != []
     assert path_errors(Config()) == []  # unset paths are reported elsewhere
+
+
+def test_occupant_overlap_must_be_a_fraction():
+    from proximity_alert.config import Config
+    from proximity_alert.validation import config_errors
+
+    assert not config_errors(Config(occupant_overlap=0.0)) and not config_errors(Config(occupant_overlap=1.0))
+    assert any("occupant" in e for e in config_errors(Config(occupant_overlap=1.5)))

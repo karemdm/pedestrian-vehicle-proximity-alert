@@ -2,7 +2,7 @@
 
 Annotated videos produced by this project.
 
-- `abbey_road_proximity.mp4`: Zebra crossing at night (made with `--model weights/yolo26m.pt --frame-step 2`): pedestrians next to passing cars and vans, which are tracked as targets, with alert states and the depth picture-in-picture. A truck and a double-decker bus pass right next to the camera, partly out of frame, and are missed by `yolo26m` in most frames (no box, so no alert for them).
+- `abbey_road_proximity.mp4`: Zebra crossing at night (made with `--model weights/yolo26m.pt --frame-step 2`): pedestrians next to passing cars and vans, which are tracked as targets, with alert states and the depth picture-in-picture. A truck and a double-decker bus pass right next to the camera, partly out of frame: the truck gets a box only in a few frames (it is missed in most of its ~130 frames); the bus is missed while it enters the frame and is detected in about two thirds of its frames once more of it is in view, so their alerts are intermittent. The video was re-rendered with the current code (the 60 s source clip is not included in the repository; `samples/` has a 25 s clip). The Shinjuku video was produced with the earlier code and not re-rendered.
 - `shinjuku_proximity.mp4`: Night-time intersection: pedestrians crossing near cars (many of them taxis) and trucks, with alert states and the depth picture-in-picture.
 
 ## Source footage

@@ -51,3 +51,12 @@ def test_overlap_is_not_symmetric_and_uses_person_area():
     person, big = (0, 0, 10, 10), (0, 0, 100, 100)
     assert overlap_ratio(person, big) == 1.0
     assert overlap_ratio(big, person) == 0.01
+
+
+def test_inner_sample_points_form_a_grid_inside_the_shrunk_box():
+    from proximity_alert.geometry import contains_point, inner_sample_points
+
+    pts = inner_sample_points((100, 300, 300, 400), 0.25)
+    assert pts[0] == (150, 325) and pts[4] == (200, 350) and pts[8] == (250, 375)
+    assert len(set(pts)) == 9 and not any(x in (100, 300) or y in (300, 400) for x, y in pts)
+    assert contains_point((0, 0, 10, 10), 10, 0) and not contains_point((0, 0, 10, 10), 11, 5)

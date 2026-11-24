@@ -91,7 +91,7 @@ def test_depth_is_sampled_inside_the_frame_when_the_foot_is_on_the_border():
 
 def test_tiny_person_uses_minimum_height_for_the_2d_gate():
     ev = ProximityEvaluator(Config())
-    tiny = (110, 395, 112, 399)  # height 4 -> radius max(10, 4) = 10; foot (111, 399) inside the car box
+    tiny = (89, 395, 91, 399)  # height 4 -> radius max(10, 4) = 10; foot (90, 399), 10 px from the car's left edge
     car = (100, 300, 300, 400)
     (p,) = ev.evaluate([(1, tiny)], [], [car], flat_depth, 0.0, FRAME)
     assert p.currently_close
@@ -144,10 +144,74 @@ def test_alert_ends_when_the_window_forgets_the_contact():
     assert not p.alert and p.ratio == 0.0
 
 
-def test_person_with_foot_inside_a_vehicle_box_always_has_zero_dz():
-    # Documents a known limitation: the contact point equals the foot, so both depth
-    # samples coincide and the depth gate cannot reject the pair.
+def region_depth(person_box, person_z, vehicle_z, vehicle_box=CAR, road_z=0.8):
+    """Fake depth map: person region, vehicle region (person on top), road elsewhere."""
+
+    def inside(box, x, y):
+        return box[0] <= x <= box[2] and box[1] <= y <= box[3]
+
+    def depth(x, y):
+        if inside(person_box, x, y):
+            return person_z
+        if inside(vehicle_box, x, y):
+            return vehicle_z
+        return road_z
+
+    return depth
+
+
+IN_FRONT = (150, 300, 170, 380)  # box inside the car box, foot (160, 380) inside it
+
+
+def test_person_in_front_of_a_vehicle_with_a_depth_gap_is_not_alerted():
+    ev = ProximityEvaluator(Config())
+    depth = region_depth(IN_FRONT, person_z=0.2, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, IN_FRONT)], [], [CAR], depth, 0.0, FRAME)
+    assert not p.currently_close and not p.alert
+    assert p.min_dz == pytest.approx(0.4)  # vehicle sampled inside the box, not at the foot
+
+
+def test_person_in_front_of_a_vehicle_is_rejected_by_a_zero_threshold():
     ev = ProximityEvaluator(Config(depth_threshold=0.0))
-    inside = (150, 300, 170, 380)
-    (p,) = ev.evaluate([(1, inside)], [], [CAR], split_depth, 0.0, FRAME)
-    assert p.min_dz == 0.0 and p.currently_close
+    depth = region_depth(IN_FRONT, person_z=0.5, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, IN_FRONT)], [], [CAR], depth, 0.0, FRAME)
+    assert p.min_dz == pytest.approx(0.1) and not p.currently_close
+
+
+def test_person_beside_a_vehicle_at_the_same_depth_is_still_alerted():
+    ev = ProximityEvaluator(Config())
+    beside = (280, 300, 320, 400)  # half of the box over the car; foot (300, 400) on the border
+    depth = region_depth(beside, person_z=0.6, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, beside)], [], [CAR], depth, 0.0, FRAME)
+    assert p.currently_close and p.alert
+    assert p.min_dz == pytest.approx(0.0)
+
+
+def test_person_overlapping_the_vehicle_edge_at_a_different_depth_is_not_alerted():
+    ev = ProximityEvaluator(Config())
+    beside = (280, 300, 320, 400)
+    depth = region_depth(beside, person_z=0.2, vehicle_z=0.6)
+    (p,) = ev.evaluate([(1, beside)], [], [CAR], depth, 0.0, FRAME)
+    assert not p.currently_close and not p.alert
+
+
+def test_foot_outside_the_vehicle_box_still_samples_the_border_point():
+    calls = []
+
+    def depth(x, y):
+        calls.append((x, y))
+        return 0.5
+
+    ev = ProximityEvaluator(Config())
+    ev.evaluate([(1, PERSON_NEAR)], [], [CAR], depth, 0.0, FRAME)
+    assert calls == [(330, 400), (300, 400)]  # foot, then the closest point on the box
+
+
+def test_vehicle_depth_ignores_grid_points_covered_by_the_person():
+    from proximity_alert.proximity import vehicle_depth
+
+    covering = (100, 300, 300, 400)  # covers every grid point: falls back to all of them
+    assert vehicle_depth(CAR, covering, lambda x, y: 0.3, FRAME) == pytest.approx(0.3)
+    person = (140, 300, 200, 400)
+    depth = region_depth(person, person_z=0.0, vehicle_z=0.7)
+    assert vehicle_depth(CAR, person, depth, FRAME) == pytest.approx(0.7)

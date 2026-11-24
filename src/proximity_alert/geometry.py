@@ -49,6 +49,33 @@ def closest_point_on_box(box: Box, x: float, y: float) -> Point:
     return int(max(x1, min(x, x2))), int(max(y1, min(y, y2)))
 
 
+def contains_point(box: Box, x: float, y: float) -> bool:
+    """Whether ``(x, y)`` lies inside ``box`` or on its border."""
+    x1, y1, x2, y2 = box
+    return x1 <= x <= x2 and y1 <= y <= y2
+
+
+def inner_sample_points(box: Box, margin: float = 0.25) -> list:
+    """Returns a 3x3 grid of points spread over the interior of ``box``.
+
+    The box is shrunk by ``margin`` (fraction of its width/height) on every side and
+    the grid covers the shrunk box, so no point lies on the border of the original box.
+
+    Args:
+        box: Box to sample.
+        margin: Fraction (0 to 0.5) of the width/height removed from each side.
+
+    Returns:
+        Nine ``(x, y)`` integer points, row by row.
+    """
+    x1, y1, x2, y2 = box
+    ix1, ix2 = x1 + (x2 - x1) * margin, x2 - (x2 - x1) * margin
+    iy1, iy2 = y1 + (y2 - y1) * margin, y2 - (y2 - y1) * margin
+    xs = [int(ix1 + (ix2 - ix1) * k / 2.0) for k in range(3)]
+    ys = [int(iy1 + (iy2 - iy1) * k / 2.0) for k in range(3)]
+    return [(x, y) for y in ys for x in xs]
+
+
 def distance(a: Point, b: Point) -> float:
     """Euclidean distance between two points."""
     return math.hypot(a[0] - b[0], a[1] - b[1])

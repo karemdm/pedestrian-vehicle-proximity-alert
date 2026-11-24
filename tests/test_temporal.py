@@ -51,3 +51,10 @@ def test_window_size_is_stable_with_float_timestamps():
         if frame_idx > 31:
             counts.add(hist.count(1))
     assert counts == {31}  # 1 s at 30 FPS, inclusive window
+
+
+def test_zero_min_ratio_does_not_alert_a_person_who_was_never_close():
+    assert not is_alert(0.0, False, 0.0)
+    assert is_alert(0.1, False, 0.0)
+    assert is_alert(0.0, True, 0.0)
+    assert is_alert(1.0, False, 1.0)

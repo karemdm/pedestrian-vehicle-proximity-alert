@@ -7,10 +7,20 @@ does not depend on numpy and can be tested with a fake depth function.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from statistics import median
 from typing import Callable, Hashable, List, Optional, Sequence, Tuple
 
 from proximity_alert.config import Config
-from proximity_alert.geometry import Box, Point, closest_point_on_box, distance, foot_point, is_rider
+from proximity_alert.geometry import (
+    Box,
+    Point,
+    closest_point_on_box,
+    contains_point,
+    distance,
+    foot_point,
+    inner_sample_points,
+    is_rider,
+)
 from proximity_alert.temporal import ProximityHistory, RiderMemory, is_alert
 
 DepthFn = Callable[[int, int], float]
@@ -20,6 +30,38 @@ MIN_TRACK_GRACE_SEC = 1.0
 
 MIN_PERSON_HEIGHT_PX = 10
 """Lower bound of the person height used for the 2D gate."""
+
+VEHICLE_INNER_MARGIN = 0.25
+"""Fraction of the vehicle box width/height cut from each side before sampling its depth.
+
+Boxes of cars, buses and trucks include road, shadows and background near the border, and
+the middle half of the box is where the body (doors, hood, windows) is. 0.25 keeps the
+samples well inside the surface while a 3x3 grid still spans half of the box in each
+direction. It is a fixed design constant, not a tuning knob.
+"""
+
+
+def vehicle_depth(vbox: Box, person_box: Box, depth_at: DepthFn, frame_size: Tuple[int, int]) -> float:
+    """Depth of the vehicle surface: median of a 3x3 grid inside the shrunk vehicle box.
+
+    Used when the person's foot lies inside the vehicle box, where the closest point of
+    the box is the foot itself and would only return the person's own depth. Grid points
+    that fall inside the person's box are ignored (they show the person, not the vehicle);
+    if every point is covered, all of them are used.
+
+    Args:
+        vbox: Vehicle box.
+        person_box: Box of the person being evaluated.
+        depth_at: Robust normalized depth at an integer pixel.
+        frame_size: ``(width, height)`` used to clamp the sampling points.
+
+    Returns:
+        Median normalized depth of the sampled vehicle points.
+    """
+    width, height = frame_size
+    points = inner_sample_points(vbox, VEHICLE_INNER_MARGIN)
+    free = [p for p in points if not contains_point(person_box, *p)] or points
+    return median(depth_at(min(max(0, x), width - 1), min(max(0, y), height - 1)) for x, y in free)
 
 
 @dataclass
@@ -102,7 +144,7 @@ class ProximityEvaluator:
                 person.is_rider = True
                 continue
 
-            self._check_vehicles(person, target_vehicle_boxes, depth_at)
+            self._check_vehicles(person, target_vehicle_boxes, depth_at, frame_size)
             self.history.update(track_id, timestamp, person.currently_close)
 
         # Keep tracks that vanished briefly (missed detections); drop them after the grace period.
@@ -115,15 +157,26 @@ class ProximityEvaluator:
                 person.alert = is_alert(person.ratio, person.currently_close, cfg.min_ratio)
         return results
 
-    def _check_vehicles(self, person: PersonResult, vehicles: Sequence[Box], depth_at: DepthFn) -> None:
-        """Applies the 2D gate and the depth gate against every target vehicle."""
+    def _check_vehicles(
+        self, person: PersonResult, vehicles: Sequence[Box], depth_at: DepthFn, frame_size: Tuple[int, int]
+    ) -> None:
+        """Applies the 2D gate and the depth gate against every target vehicle.
+
+        The vehicle depth is sampled at the closest point of its box when the foot is
+        outside it. When the foot is inside the box that point is the foot itself, so the
+        vehicle depth is taken from the box interior instead (:func:`vehicle_depth`).
+        """
         _, y1, _, y2 = person.box
         max_dist = max(MIN_PERSON_HEIGHT_PX, y2 - y1) * self.config.height_factor
         for vbox in vehicles:
             contact = closest_point_on_box(vbox, *person.foot)
             if distance(person.foot, contact) > max_dist:
                 continue
-            dz = abs(person.z - depth_at(*contact))
+            if contact == person.foot:
+                z_vehicle = vehicle_depth(vbox, person.box, depth_at, frame_size)
+            else:
+                z_vehicle = depth_at(*contact)
+            dz = abs(person.z - z_vehicle)
             if person.min_dz is None or dz < person.min_dz:
                 person.min_dz = dz
             if dz <= self.config.depth_threshold:

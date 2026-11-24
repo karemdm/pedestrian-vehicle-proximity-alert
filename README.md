@@ -102,16 +102,21 @@ the repository and needs no YOLO download: pass `--model weights/yolo26m.pt`. Se
 
 ## Results
 
-Example outputs produced by this project (re-encoded to H.264, 1280×720, no audio). They were produced before the
-vehicle-depth and occupant changes described below, so people standing in front of or inside a vehicle may be alerted
-in them; re-running the commands gives the current behaviour.
+Example outputs produced by this project (re-encoded to H.264, 1280×720, no audio). The Abbey Road video was
+re-rendered with the current code. Compared with the earlier render it is identical except for one frame (frame 550 of
+900), where a false alert is no longer raised: a person on the pavement whose feet overlap the car box in 2D, because
+the vehicle depth is now sampled inside the box. In both renders 374 of 900 frames have an alert and there are 17 alert
+groups. The Shinjuku video was produced with the earlier code (before the vehicle-depth and occupant changes described
+below) and was not re-rendered, so people standing in front of or inside a vehicle may be alerted in it; re-running the
+commands gives the current behaviour.
 
 | File | Content |
 |---|---|
-| [`results/abbey_road_proximity.mp4`](results/abbey_road_proximity.mp4) | Zebra crossing at night (60 s, `--model weights/yolo26m.pt --frame-step 2`): pedestrians on the pavement and the crossing next to passing cars and vans, which are tracked as targets, with alert states and the depth picture-in-picture. A truck and a double-decker bus pass right next to the camera, partly out of frame, and are missed by `yolo26m` in most frames (no box, so no alert for them). |
+| [`results/abbey_road_proximity.mp4`](results/abbey_road_proximity.mp4) | Zebra crossing at night (60 s, `--model weights/yolo26m.pt --frame-step 2`): pedestrians on the pavement and the crossing next to passing cars and vans, which are tracked as targets, with alert states and the depth picture-in-picture. A truck and a double-decker bus pass right next to the camera, partly out of frame: the truck gets a box only in a few frames (it is missed in most of its ~130 frames); the bus is missed while it enters the frame and is detected in about two thirds of its frames once more of it is in view, so their alerts are intermittent. |
 | [`results/shinjuku_proximity.mp4`](results/shinjuku_proximity.mp4) | Night-time intersection (60 s): pedestrians crossing near cars (many of them taxis) and trucks, with alert states and the depth picture-in-picture. |
 
-Try it on the sample clip in [`samples/`](samples/README.md):
+The 60 s Abbey Road clip is not included in the repository. To try the same command on the shipped 25 s sample clip
+in [`samples/`](samples/README.md) (the output will differ from the video above):
 
 ```bash
 proximity-alert -i samples/abbey_road_25s.mp4 -o outputs/abbey_road.mp4 --model weights/yolo26m.pt --frame-step 2

@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from proximity_alert.config import Config
-from proximity_alert.validation import config_errors
+from proximity_alert.validation import config_errors, path_errors
 
 
 class SetupWindow:
@@ -122,7 +122,7 @@ class SetupWindow:
             self._result = None
             messagebox.showerror("Error", "Please verify that numerical parameters are valid!")
             return
-        problems = config_errors(self._result)
+        problems = config_errors(self._result) + path_errors(self._result)
         if problems:
             self._result = None
             messagebox.showerror("Error", "Invalid parameters:\n- " + "\n- ".join(problems))

@@ -21,7 +21,7 @@ from proximity_alert.config import (
     effective_fps,
     processed_frame_count,
 )
-from proximity_alert.depth import DepthEstimator, robust_depth
+from proximity_alert.depth import DepthEstimator, has_depth_evidence, robust_depth
 from proximity_alert.geometry import Box, clip_box
 from proximity_alert.proximity import ProximityEvaluator
 from proximity_alert.rendering import render
@@ -178,8 +178,22 @@ def run(config: Config) -> int:
             def depth_at(x: int, y: int, _d: np.ndarray = depth) -> float:
                 return robust_depth(_d, x, y, config.depth_patch)
 
+            depth_valid = has_depth_evidence(depth)
+            if not depth_valid and not warn_state.get("flat_depth"):
+                logger.warning(
+                    "Constant depth map at frame %d: no depth evidence, so no pedestrian is flagged as close "
+                    "in such frames (logged once).",
+                    frame_idx,
+                )
+                warn_state["flat_depth"] = True
             persons = evaluator.evaluate(
-                dets.persons, dets.rider_vehicles, dets.target_vehicles, depth_at, timestamp, (width, height)
+                dets.persons,
+                dets.rider_vehicles,
+                dets.target_vehicles,
+                depth_at,
+                timestamp,
+                (width, height),
+                depth_valid,
             )
             render(frame, persons, dets.rider_vehicles, dets.target_vehicles, depth, config.pip_scale)
             writer.write(frame)

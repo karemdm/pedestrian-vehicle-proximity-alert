@@ -78,3 +78,11 @@ def test_colorize_near_is_dark_far_is_bright():
 def test_colorize_handles_exact_one_without_wraparound():
     img = colorize(np.ones((2, 2), dtype=np.float32))
     assert np.all(img == img[0, 0])
+
+
+def test_has_depth_evidence_is_false_only_for_constant_maps():
+    from proximity_alert.depth import has_depth_evidence
+
+    assert not has_depth_evidence(normalize_inverted(np.full((4, 4), 90, dtype=np.uint8)))
+    assert not has_depth_evidence(np.ones((4, 4), np.float32))
+    assert has_depth_evidence(normalize_inverted(np.array([[0, 1]], dtype=np.uint8)))

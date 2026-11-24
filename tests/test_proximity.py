@@ -245,3 +245,14 @@ def test_vehicle_depth_ignores_grid_points_covered_by_the_person():
     person = (140, 300, 200, 400)
     depth = region_depth(person, person_z=0.0, vehicle_z=0.7)
     assert vehicle_depth(CAR, person, depth, FRAME) == pytest.approx(0.7)
+
+
+def test_frame_without_depth_evidence_confirms_no_pair_and_adds_no_sample():
+    ev = ProximityEvaluator(Config())
+    (p,) = ev.evaluate([(1, PERSON_NEAR)], [], [CAR], flat_depth, 0.0, FRAME, depth_valid=False)
+    assert not p.currently_close and not p.alert and p.min_dz is None
+    assert ev.history.count(1) == 0
+    (p,) = ev.evaluate([(1, PERSON_NEAR)], [], [CAR], flat_depth, 0.1, FRAME)  # normal frame afterwards
+    assert p.alert
+    (p,) = ev.evaluate([(1, PERSON_NEAR)], [], [CAR], flat_depth, 0.2, FRAME, depth_valid=False)
+    assert not p.currently_close and ev.history.count(1) == 1  # no new sample

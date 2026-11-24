@@ -36,7 +36,8 @@ def normalize_inverted(raw_depth: np.ndarray) -> np.ndarray:
 
     Returns:
         ``1 - (d - min) / (max - min)`` as float32, so ``0`` is the nearest and ``1``
-        the farthest surface of the frame; a constant map yields all ones.
+        the farthest surface of the frame; a constant map yields all ones
+        (see :func:`has_depth_evidence`).
     """
     min_val, max_val = float(raw_depth.min()), float(raw_depth.max())
     if max_val - min_val > 1e-5:
@@ -44,6 +45,21 @@ def normalize_inverted(raw_depth: np.ndarray) -> np.ndarray:
     else:
         norm = np.zeros_like(raw_depth)
     return (1.0 - norm).astype(np.float32)
+
+
+def has_depth_evidence(depth_map: np.ndarray) -> bool:
+    """Whether a normalized depth map carries any depth information.
+
+    A constant raw map (black frame, blank image) is normalized to all ones, which
+    would make every pair look "at the same depth". Such a frame has no evidence.
+
+    Args:
+        depth_map: Normalized depth map ``(H, W)`` from :func:`normalize_inverted`.
+
+    Returns:
+        ``False`` when ``max - min`` is not above the normalization tolerance (1e-5).
+    """
+    return bool(float(depth_map.max()) - float(depth_map.min()) > 1e-5)
 
 
 def robust_depth(depth_map: np.ndarray, x: int, y: int, window_size: int = 7) -> float:

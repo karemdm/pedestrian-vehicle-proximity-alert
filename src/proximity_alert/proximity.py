@@ -79,7 +79,8 @@ class PersonResult:
         is_occupant: Person is (or recently was) inside a car/bus/truck box at the
             vehicle's depth (driver or passenger); skipped like a rider.
         currently_close: Passed both the 2D and the depth gate in this frame.
-        min_dz: Smallest depth difference among vehicles passing the 2D gate.
+        min_dz: Smallest depth difference among vehicles passing the 2D gate (``None``
+            when none did or the frame had no depth evidence).
         connections: ``(foot, vehicle_contact_point)`` pairs that passed both gates.
         ratio: Fraction of close frames in the sliding window.
         alert: Final alert decision.
@@ -119,6 +120,7 @@ class ProximityEvaluator:
         depth_at: DepthFn,
         timestamp: float,
         frame_size: Tuple[int, int],
+        depth_valid: bool = True,
     ) -> List[PersonResult]:
         """Evaluates every person of a frame against the target vehicles.
 
@@ -129,6 +131,9 @@ class ProximityEvaluator:
             depth_at: Returns the robust normalized depth at integer pixel ``(x, y)``.
             timestamp: Video time of the frame in seconds.
             frame_size: ``(width, height)`` used to clamp depth sampling points.
+            depth_valid: ``False`` when the frame's depth map is constant (no depth
+                evidence). Pairs cannot be confirmed then: nobody is close in this
+                frame and the sliding windows get no sample for it.
 
         Returns:
             One :class:`PersonResult` per person, in input order.
@@ -155,6 +160,8 @@ class ProximityEvaluator:
                 person.is_occupant = True
                 continue
 
+            if not depth_valid:
+                continue  # no depth evidence: the depth gate cannot confirm a pair
             self._check_vehicles(person, target_vehicle_boxes, depth_at, frame_size)
             self.history.update(track_id, timestamp, person.currently_close)
 

@@ -77,9 +77,9 @@ def fakes(monkeypatch):
     stamps = []
     real = ProximityEvaluator.evaluate
 
-    def spy(self, persons, riders, targets, depth_at, timestamp, frame_size):
+    def spy(self, persons, riders, targets, depth_at, timestamp, frame_size, depth_valid=True):
         stamps.append(timestamp)
-        return real(self, persons, riders, targets, depth_at, timestamp, frame_size)
+        return real(self, persons, riders, targets, depth_at, timestamp, frame_size, depth_valid)
 
     monkeypatch.setattr(ProximityEvaluator, "evaluate", spy)
     return stamps
@@ -158,3 +158,24 @@ def test_frames_of_unexpected_size_are_resized(monkeypatch, tmp_path, fakes):
     out = RealCapture(str(tmp_path / "out" / "o.mp4"))
     assert int(out.get(cv2.CAP_PROP_FRAME_COUNT)) == 2
     out.release()
+
+
+def test_constant_depth_frames_skip_the_depth_gate_and_log_once(monkeypatch, tmp_path, fakes, caplog):
+    class FlatDepth(FakeDepth):
+        def __call__(self, frame):
+            return np.ones((H, W), np.float32)
+
+    monkeypatch.setattr(pipeline, "DepthEstimator", FlatDepth)
+    flags = []
+    real = ProximityEvaluator.evaluate
+
+    def spy(self, *args, **kwargs):
+        flags.append(args[-1] if len(args) > 6 else kwargs.get("depth_valid", True))
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(ProximityEvaluator, "evaluate", spy)
+    _use_cap(monkeypatch, FakeCap(4, fps=10.0))
+    with caplog.at_level("WARNING"):
+        assert pipeline.run(_cfg(tmp_path)) == 0
+    assert flags == [False] * 4
+    assert sum("no depth evidence" in r.message for r in caplog.records) == 1

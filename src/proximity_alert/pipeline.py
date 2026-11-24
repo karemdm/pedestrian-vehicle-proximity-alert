@@ -25,6 +25,7 @@ from proximity_alert.depth import DepthEstimator, robust_depth
 from proximity_alert.geometry import Box, clip_box
 from proximity_alert.proximity import ProximityEvaluator
 from proximity_alert.rendering import render
+from proximity_alert.validation import path_errors
 
 logger = logging.getLogger(__name__)
 
@@ -94,10 +95,15 @@ def run(config: Config) -> int:
         config: Pipeline configuration.
 
     Returns:
-        Process exit code (``0`` on success).
+        Process exit code: ``0`` on success, ``1`` if the paths are invalid, the
+        input or output cannot be opened, or no frame could be read.
     """
     from ultralytics import YOLO
 
+    problems = path_errors(config)
+    if problems:
+        logger.error("%s", problems[0])
+        return 1
     cap = cv2.VideoCapture(config.input_path)
     if not cap.isOpened():
         logger.error("Cannot open input video: %s", config.input_path)
@@ -135,12 +141,11 @@ def run(config: Config) -> int:
     evaluator = ProximityEvaluator(config)
     warn_state: dict = {}
 
-    if config.display:
-        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(WINDOW_NAME, 1280, 720)
-
     frame_idx, raw_idx, start = 0, 0, time.time()
     try:
+        if config.display:
+            cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(WINDOW_NAME, 1280, 720)
         while True:
             if step > 1:
                 # Skipped frames are only grabbed (no decode to an array, no inference).
@@ -198,5 +203,8 @@ def run(config: Config) -> int:
         writer.release()
         if config.display:
             cv2.destroyAllWindows()
+    if frame_idx == 0:
+        logger.error("No frame could be read from %s; the output video is empty.", config.input_path)
+        return 1
     logger.info("Output saved to %s", config.output_path)
     return 0
